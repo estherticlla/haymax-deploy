@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { View, StyleSheet } from "react-native";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import * as K from "../components/kit";
 import { go } from "../lib/nav";
 import useApi from "../hooks/useApi";
-import { getReceta, planificarPlato, actualizarPlan, getPlanesEntre } from "../lib/api";
+import { getReceta, planificarPlato, actualizarPlan, getPlanesEntre, enviarFaltantesALista } from "../lib/api";
 import { soles, ingredienteAlcanza } from "../lib/domain";
 import { fechaLarga } from "../lib/fechas";
 
@@ -20,6 +20,7 @@ export default function PLA_07({ receta: recetaId, fecha, comida = "almuerzo", p
   const [porciones, setPorciones] = useState(null);
   const [guardando, setGuardando] = useState(false);
   const [fallo, setFallo] = useState("");
+  const solicitudEnCurso = useRef(false);
 
   if (loading) {
     return (
@@ -41,9 +42,17 @@ export default function PLA_07({ receta: recetaId, fecha, comida = "almuerzo", p
   const porc = porciones == null ? r.porciones : porciones;
   const veredicto = ingredienteAlcanza(r, pantry, porc);
 
-  const confirmar = async () => {
+  const confirmar = async (agregarFaltantes = false) => {
+    if (solicitudEnCurso.current) return;
+    solicitudEnCurso.current = true;
     setGuardando(true);
+    setFallo("");
+    let faltantesEnviados = false;
     try {
+      if (agregarFaltantes) {
+        await enviarFaltantesALista(veredicto.faltantes);
+        faltantesEnviados = true;
+      }
       if (planId) {
         // Edición de un plato existente: PUT parcial (requisito 3.c: guarda
         // el día, la comida y la cantidad de porciones).
@@ -62,8 +71,15 @@ export default function PLA_07({ receta: recetaId, fecha, comida = "almuerzo", p
       await planificarPlato({ recetaId: r.id, fecha, comida, porciones: porc });
       go("PLA-08", { fecha, comida, nombre: r.nombre, porciones: String(porc) });
     } catch (e) {
-      setFallo((e && e.message) || "No se pudo guardar el plan. Revisa tu conexión con la API.");
+      const mensaje = e && e.message;
+      setFallo(
+        mensaje ||
+          (agregarFaltantes && !faltantesEnviados
+            ? "No se pudieron agregar los ingredientes a la lista. No se guardó el plan."
+            : "No se pudo guardar el plan. Revisa tu conexión con la API."),
+      );
     } finally {
+      solicitudEnCurso.current = false;
       setGuardando(false);
     }
   };
@@ -89,34 +105,34 @@ export default function PLA_07({ receta: recetaId, fecha, comida = "almuerzo", p
           onChange={(d) => setPorciones(Math.max(1, Math.min(MAX_PORCIONES, porc + d)))}
         />
       </View>
-      <K.Note text="Recalcularemos los insumos según las porciones; si algo falta, podrás enviarlo a tu lista de compras." />
-
       {!veredicto.alcanza && (
         <View style={styles.alerta}>
           <K.Banner
-            title="Faltan ingredientes"
-            sub={`Tu despensa no alcanza para ${porc} porciones. Elige un platillo distinto o baja las porciones.`}
+            title="Faltan estos ingredientes"
+            sub={veredicto.faltantes.join(", ")}
             tone="RED"
           />
-          <K.TextLine text={`Faltaría: ${veredicto.faltantes.slice(0, 3).join(", ")}${veredicto.faltantes.length > 3 ? "…" : ""}`} />
         </View>
       )}
 
       <Button
-        label={veredicto.alcanza ? "Confirmar porciones" : "Faltan ingredientes"}
-        variant={veredicto.alcanza ? "primary" : "ghost"}
-        disabled={!veredicto.alcanza || guardando}
+        label={veredicto.alcanza ? "Confirmar porciones" : "Agregar faltantes a la lista y planificar"}
+        variant="primary"
+        disabled={guardando}
         loading={guardando}
         full
-        onPress={confirmar}
+        onPress={() => confirmar(!veredicto.alcanza)}
       />
+      {!veredicto.alcanza ? (
+        <Button
+          label="Elegir otro platillo"
+          variant="outline"
+          disabled={guardando}
+          full
+          onPress={() => go("PLA-06", { fecha, comida, planId })}
+        />
+      ) : null}
       {fallo ? <K.Banner title={fallo} tone="RED" /> : null}
-      <K.LinkText
-        label="Ver mi plan de la semana"
-        align="CENTER"
-        onPress={() => go("PLA-09", { fecha })}
-      />
-      <K.LinkText label="Cancelar" align="CENTER" onPress={() => go("PLA-05")} />
     </Screen>
   );
 }

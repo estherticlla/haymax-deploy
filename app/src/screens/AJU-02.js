@@ -8,7 +8,7 @@ import { go } from "../lib/nav";
 import { colors, spacing, typography } from "../tokens";
 import useApi from "../hooks/useApi";
 import { leerPreferencias, guardarPreferencias } from "../lib/preferencias";
-import { anunciar, focoVisible } from "../lib/a11y";
+import { anunciar, focoVisible, MIN_TARGET } from "../lib/a11y";
 
 const NOMBRE = "Exclusiones alimentarias";
 
@@ -104,6 +104,7 @@ export default function AJU_02() {
               onPress={() => quitar(x)}
               accessibilityRole="button"
               accessibilityLabel={`Quitar ${x}`}
+              accessibilityState={{ disabled: false }}
               accessibilityHint="Toca para dejar de excluir este ingrediente"
               style={(state) => [
                 styles.chipRemovable,
@@ -151,6 +152,7 @@ export default function AJU_02() {
                 onPress={() => agregar(x)}
                 accessibilityRole="button"
                 accessibilityLabel={`Agregar ${x}`}
+                accessibilityState={{ disabled: false }}
                 style={(state) => [
                   styles.chipSuggest,
                   state.pressed && styles.pressed,
@@ -227,7 +229,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    minHeight: 36,
+    minHeight: MIN_TARGET,
   },
   chipRemovableText: {
     color: colors.white,
@@ -240,11 +242,11 @@ const styles = StyleSheet.create({
     gap: 4,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    minHeight: 36,
+    minHeight: MIN_TARGET,
   },
   chipSuggestText: {
     color: colors.primary,
@@ -257,11 +259,11 @@ const styles = StyleSheet.create({
     gap: 6,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: 999,
     paddingVertical: 8,
     paddingHorizontal: 12,
-    minHeight: 36,
+    minHeight: MIN_TARGET,
   },
   chipTipoOn: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipTipoText: { color: colors.text, fontSize: typography.sizes.body },

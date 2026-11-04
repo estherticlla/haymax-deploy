@@ -77,7 +77,7 @@ const styles = StyleSheet.create({
   icon: { fontSize: typography.sizes.label },
   primary: { backgroundColor: colors.primary },
   primaryText: { color: colors.white },
-  outline: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.primary },
+  outline: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.borderStrong },
   outlineText: { color: colors.primary },
   ghost: { backgroundColor: colors.greyBg },
   ghostText: { color: colors.text },

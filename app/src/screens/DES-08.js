@@ -12,8 +12,8 @@ export default function DES_08() {
     <Screen id="DES-08" name="Confirmación de alta (éxito)">
       <K.CheckCircle title="Insumos agregados a tu despensa" />
       <View style={styles.rows}>
-        {items.map((it) => (
-          <K.Row key={it.id} label={it.nombre} value={it.cantidad} icon="leaf-outline" />
+        {items.map((it, index) => (
+          <K.Row key={it.id || index} label={it.nombre} value={it.cantidad} icon="leaf-outline" />
         ))}
       </View>
       <K.TextLine text="Ya puedes usarlos en el motor de recetas." />

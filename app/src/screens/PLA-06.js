@@ -10,6 +10,7 @@ import { getMotor } from "../lib/api";
 import { soles } from "../lib/domain";
 import { fechaLarga } from "../lib/fechas";
 import { resolverImagen } from "../lib/imagenes";
+import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
 
 const NOMBRE = "Planificar: elegir platillo";
 const COMIDAS = [
@@ -38,7 +39,10 @@ function estadoDe(d) {
 
 export default function PLA_06({ fecha, comida: comidaInicial, planId }) {
   const [comida, setComida] = useState(comidaInicial || "almuerzo");
-  const { data, loading, error, recargar } = useApi(() => getMotor());
+  const { data, loading, error, recargar } = useApi(async () => {
+    const [motor, preferencias] = await Promise.all([getMotor(), leerPreferencias()]);
+    return { ...motor, recetas: filtrarRecetasPorPreferencias(motor.recetas || [], preferencias) };
+  });
 
   if (loading) {
     return (
@@ -97,7 +101,7 @@ function TarjetaPlato({ plato, estado, onPress }) {
         ? { bg: colors.amberBg, fg: colors.amber }
         : { bg: colors.redBg, fg: colors.red };
   return (
-    <Pressable onPress={onPress} style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.9 }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={`${plato.nombre}. Elegir este platillo`} accessibilityState={{ disabled: false }} style={({ pressed }) => [styles.tarjeta, pressed && { opacity: 0.9 }]}>
       <View style={styles.fotoWrap}>
         {fuente ? (
           <Image source={fuente} style={styles.foto} contentFit="cover" transition={150} cachePolicy="memory-disk" />
@@ -117,7 +121,7 @@ function TarjetaPlato({ plato, estado, onPress }) {
         </View>
       </View>
       <View style={styles.cuerpo}>
-        <Text style={styles.titulo} numberOfLines={2}>{plato.nombre}</Text>
+        <Text style={styles.titulo}>{plato.nombre}</Text>
         <View style={styles.meta}>
           <Text style={styles.metaItem}>⏱ {plato.minutos} min</Text>
           <Text style={styles.metaItem}>🍽 {plato.porciones} porc.</Text>

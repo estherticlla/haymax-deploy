@@ -2,11 +2,11 @@
 import { useState } from "react";
 import { View, Text, Pressable, StyleSheet, TextInput } from "react-native";
 import { Image } from "expo-image";
-import { colors, radius, spacing, typography, shadows } from "../tokens";
+import { colors, radius, spacing, typography, shadows, layout } from "../tokens";
 import Icon, { resolveIconName, isEmoji } from "./Icon";
 import { resolverImagen } from "../lib/imagenes";
 import { go } from "../lib/nav";
-import { focoVisible, etiqueta } from "../lib/a11y";
+import { focoVisible, etiqueta, MIN_TARGET } from "../lib/a11y";
 
 // Kit de UI: un componente por primitiva del wireframe (prototipo/code.js).
 // Las pantallas reales (Fases 1-4) se componen SOLO con estos elementos.
@@ -20,7 +20,7 @@ function Tappable({ onPress, label, role = "button", state, hint, children }) {
       accessibilityRole={role}
       accessibilityLabel={label}
       accessibilityHint={hint}
-      accessibilityState={state}
+      accessibilityState={state || { disabled: !onPress }}
       style={(s) => [s.pressed && styles.pressed, focoVisible(s)]}
     >
       {children}
@@ -54,6 +54,7 @@ export function Header({ iniciales = "R", title, sub, alertas }) {
                 ? `Alertas de vencimiento: ${alertas} ${alertas === 1 ? "insumo requiere" : "insumos requieren"} atención`
                 : "Alertas de vencimiento"
             }
+            accessibilityState={{ disabled: false }}
             style={(s) => [styles.headerBtn, s.pressed && styles.pressed, focoVisible(s)]}
           >
             <Icon name="notifications-outline" size={22} color={colors.primaryDark} />
@@ -63,11 +64,27 @@ export function Header({ iniciales = "R", title, sub, alertas }) {
               </View>
             ) : null}
           </Pressable>
+          <HelpButton />
         </View>
       </View>
       <Text style={styles.headerTitle} accessibilityRole="header">{title}</Text>
       {sub ? <Text style={styles.headerSub}>{sub}</Text> : null}
     </View>
+  );
+}
+
+export function HelpButton() {
+  return (
+    <Pressable
+      onPress={() => go("AYU-01")}
+      accessibilityRole="button"
+      accessibilityLabel="Ayuda"
+      accessibilityHint="Abre preguntas frecuentes sobre escaneo, planificación y descuento de insumos"
+      accessibilityState={{ disabled: false }}
+      style={(s) => [styles.headerBtn, s.pressed && styles.pressed, focoVisible(s)]}
+    >
+      <Icon name="help-circle-outline" size={22} color={colors.primaryDark} />
+    </Pressable>
   );
 }
 
@@ -82,6 +99,7 @@ export function SectionTitle({ title, action, onPress }) {
           hitSlop={8}
           accessibilityRole="button"
           accessibilityLabel={etiqueta(action, title)}
+          accessibilityState={{ disabled: !onPress }}
           style={(s) => [styles.secActionBtn, focoVisible(s)]}
         >
           <Text style={styles.secAction}>{action}</Text>
@@ -171,9 +189,20 @@ export function Row({ label, value, valueColor, icon, onPress }) {
   );
 }
 
-export function Chips({ items = [], active, ok, onPressItem, hintItem }) {
+export function Chips({
+  items = [],
+  active,
+  ok,
+  onPressItem,
+  hintItem,
+  disabled = false,
+  accessibilityRole = "button",
+  groupRole,
+  groupLabel,
+  minTarget = false,
+}) {
   return (
-    <View style={styles.chipsRow}>
+    <View style={styles.chipsRow} accessibilityRole={groupRole} accessibilityLabel={groupLabel}>
       {items.map((it, i) => {
         const label = typeof it === "object" && it !== null ? it.label : it;
         const tone = typeof it === "object" && it !== null ? it.tone : null;
@@ -189,7 +218,7 @@ export function Chips({ items = [], active, ok, onPressItem, hintItem }) {
           : null;
         const isActive = !ok && !tone && label === active;
         const chip = (
-          <View style={[styles.chip, ok && styles.chipOk, toneStyle, isActive && styles.chipActive]}>
+          <View style={[styles.chip, minTarget && styles.chipTarget, ok && styles.chipOk, toneStyle, isActive && styles.chipActive]}>
             <Text style={[styles.chipText, ok && styles.chipTextOk, toneText, isActive && styles.chipTextActive]}>
               {label}
             </Text>
@@ -199,11 +228,16 @@ export function Chips({ items = [], active, ok, onPressItem, hintItem }) {
           <Pressable
             key={i}
             onPress={() => onPressItem(label)}
+            disabled={disabled}
             hitSlop={{ top: 6, bottom: 6, left: 4, right: 4 }}
-            accessibilityRole="button"
+            accessibilityRole={accessibilityRole}
             accessibilityLabel={label}
             accessibilityHint={hintItem}
-            accessibilityState={{ selected: !!isActive }}
+            accessibilityState={
+              accessibilityRole === "radio"
+                ? { checked: !!isActive, disabled: !!disabled }
+                : { selected: !!isActive, disabled: !!disabled }
+            }
             style={(s) => [s.pressed && styles.pressed, focoVisible(s)]}
           >
             {chip}
@@ -281,12 +315,15 @@ export function Banner({ title, sub, tone }) {
   );
 }
 
-export function Stat({ value, label, delta }) {
+export function Stat({ value, label, delta, eyebrow }) {
   return (
-    <View style={styles.stat} accessible accessibilityLabel={etiqueta(label, value, delta)}>
-      <Text style={styles.statValue}>{value}</Text>
+    <View style={styles.stat} accessible accessibilityLabel={etiqueta(eyebrow, label, value, delta)}>
+      {eyebrow ? <Text style={styles.statEyebrow}>{eyebrow}</Text> : null}
+      <View style={styles.statTop}>
+        <Text style={styles.statValue}>{value}</Text>
+        {delta ? <Text style={styles.statDelta}>{delta}</Text> : null}
+      </View>
       <Text style={styles.statLabel}>{label}</Text>
-      {delta ? <Text style={styles.statDelta}>{delta}</Text> : null}
     </View>
   );
 }
@@ -459,6 +496,7 @@ export function LinkText({ label, align, onPress }) {
       hitSlop={6}
       accessibilityRole="link"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !onPress }}
       style={(s) => [styles.linkBtn, focoVisible(s)]}
     >
       <Text style={[styles.link, { textAlign: String(align || "left").toLowerCase() }]}>{label}</Text>
@@ -628,6 +666,7 @@ export function EditStepper({ label, qty, onChange }) {
                 onPress={() => onChange(b.delta)}
                 accessibilityRole="button"
                 accessibilityLabel={`${b.accion} ${label}`}
+                accessibilityState={{ disabled: false }}
                 style={(st) => [styles.stepperBtn, st.pressed && styles.pressed, focoVisible(st)]}
               >
                 <Text style={styles.stepperBtns} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
@@ -706,7 +745,7 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary, alignItems: "center", justifyContent: "center" },
   avatarText: { fontSize: 16, fontWeight: typography.weights.bold, color: colors.white },
   headerIcons: { flexDirection: "row", gap: 14 },
-  headerBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  headerBtn: { minWidth: MIN_TARGET, minHeight: MIN_TARGET, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", top: 2, right: 0, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.red, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
   badgeText: { fontSize: 11, fontWeight: typography.weights.bold, color: colors.white },
   headerTitle: { fontSize: 26, fontWeight: typography.weights.bold, color: colors.text, lineHeight: 31 },
@@ -736,7 +775,7 @@ const styles = StyleSheet.create({
   cardRight: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
 
   row: {
-    height: 48,
+    minHeight: layout.rowMinHeight,
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
@@ -746,10 +785,11 @@ const styles = StyleSheet.create({
   rowIcon: { width: 32, height: 32, borderRadius: radius.sm, backgroundColor: colors.greyBg, alignItems: "center", justifyContent: "center" },
   rowIconText: { fontSize: typography.sizes.small, color: colors.muted },
   rowLabel: { flex: 1, fontSize: 14, color: colors.text },
-  rowValue: { fontSize: 13, fontWeight: typography.weights.semibold, color: colors.green, maxWidth: 140, textAlign: "right" },
+  rowValue: { flexShrink: 1, fontSize: 13, fontWeight: typography.weights.semibold, color: colors.green, maxWidth: 140, textAlign: "right" },
 
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: 4 },
-  chip: { height: 32, borderRadius: radius.pill, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", backgroundColor: colors.white, borderWidth: 1, borderColor: colors.border },
+  chip: { minHeight: layout.chipMinHeight, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: spacing.xs, alignItems: "center", justifyContent: "center", backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderStrong },
+  chipTarget: { minHeight: MIN_TARGET, paddingVertical: spacing.sm },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipOk: { backgroundColor: colors.greenBg, borderColor: colors.greenBg },
   chipText: { fontSize: typography.sizes.small, color: colors.text },
@@ -779,19 +819,21 @@ const styles = StyleSheet.create({
   bannerTitle: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold },
   bannerSub: { fontSize: 11.5, marginTop: 4, opacity: 0.9 },
 
-  stat: { backgroundColor: colors.white, borderRadius: radius.lg, padding: 16, position: "relative", ...shadows.card },
-  statValue: { fontSize: typography.sizes.hero, fontWeight: typography.weights.bold, color: colors.primary },
+  stat: { backgroundColor: colors.white, borderRadius: radius.lg, padding: 16, ...shadows.card },
+  statEyebrow: { fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: colors.muted, textTransform: "uppercase", marginBottom: spacing.xs },
+  statTop: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "flex-start", gap: spacing.sm },
+  statValue: { flexShrink: 1, fontSize: typography.sizes.hero, fontWeight: typography.weights.bold, color: colors.primary },
   statLabel: { fontSize: typography.sizes.small, color: colors.sub, marginTop: 6 },
-  statDelta: { position: "absolute", right: 16, top: 22, fontSize: 14, fontWeight: typography.weights.bold, color: colors.green },
+  statDelta: { flexShrink: 1, paddingTop: spacing.xs, fontSize: 14, fontWeight: typography.weights.bold, color: colors.green },
 
   balance: { backgroundColor: colors.greenBg, borderRadius: radius.lg, padding: 14 },
-  balanceTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  balanceLabel: { fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: colors.green, letterSpacing: 0.7 },
-  balancePct: { fontSize: 13, fontWeight: typography.weights.bold, color: colors.green },
+  balanceTop: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: spacing.xs },
+  balanceLabel: { flexShrink: 1, fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: colors.green, letterSpacing: 0.7 },
+  balancePct: { flexShrink: 1, fontSize: 13, fontWeight: typography.weights.bold, color: colors.green },
   balanceText: { fontSize: typography.sizes.small, color: colors.text, marginTop: 8, lineHeight: 17 },
   balanceLink: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.green, marginTop: 8 },
 
-  radio: { backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, padding: 14, flexDirection: "row", gap: spacing.sm, marginBottom: 4 },
+  radio: { backgroundColor: colors.white, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, padding: 14, flexDirection: "row", gap: spacing.sm, marginBottom: 4 },
   radioOn: { borderColor: colors.primary, borderWidth: 1.8 },
   radioDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 1.6, borderColor: colors.muted, marginTop: 2, alignItems: "center", justifyContent: "center" },
   radioDotOn: { borderColor: colors.primary, backgroundColor: colors.primary },
@@ -801,11 +843,11 @@ const styles = StyleSheet.create({
   radioSub: { fontSize: 11.5, color: colors.sub, marginTop: 4 },
 
   inputLabel: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.text, marginBottom: 6 },
-  input: { minHeight: 46, borderRadius: radius.md, backgroundColor: colors.field, borderWidth: 1, borderColor: colors.border, justifyContent: "center", paddingHorizontal: 14 },
+  input: { minHeight: 46, borderRadius: radius.md, backgroundColor: colors.field, borderWidth: 1, borderColor: colors.borderStrong, justifyContent: "center", paddingHorizontal: 14 },
   inputText: { fontSize: typography.sizes.body, color: colors.muted },
   inputLive: { fontSize: typography.sizes.body, color: colors.text, paddingVertical: 0 },
 
-  empty: { height: 130, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.field, alignItems: "center", justifyContent: "center", padding: spacing.md, gap: spacing.sm },
+  empty: { minHeight: layout.emptyStateMinHeight, borderRadius: radius.lg, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.field, alignItems: "center", justifyContent: "center", padding: spacing.md, gap: spacing.sm },
   emptyTitle: { fontSize: typography.sizes.body, color: colors.sub, textAlign: "center" },
   emptySub: { fontSize: typography.sizes.small, color: colors.muted, textAlign: "center", marginTop: 6 },
 
@@ -817,9 +859,9 @@ const styles = StyleSheet.create({
   errorRetry: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.red, textDecorationLine: "underline" },
 
   prog: { marginBottom: 4 },
-  progTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  progLabel: { fontSize: 14, fontWeight: typography.weights.semibold, color: colors.text },
-  progRight: { fontSize: 13, fontWeight: typography.weights.semibold, color: colors.green },
+  progTop: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: spacing.xs },
+  progLabel: { flexShrink: 1, fontSize: 14, fontWeight: typography.weights.semibold, color: colors.text },
+  progRight: { flexShrink: 1, fontSize: 13, fontWeight: typography.weights.semibold, color: colors.green, textAlign: "right" },
   progTrack: { height: 8, borderRadius: 4, backgroundColor: colors.track, marginTop: 8, overflow: "hidden" },
   progFill: { height: 8, borderRadius: 4, backgroundColor: colors.green },
 
@@ -831,15 +873,15 @@ const styles = StyleSheet.create({
   photoImg: { width: "100%", backgroundColor: colors.primaryLight },
   photoPhText: { fontSize: typography.sizes.small, color: colors.primary },
   photoBody: { padding: 14, gap: 6 },
-  photoTop: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
-  photoTitle: { flex: 1, fontSize: 17, fontWeight: typography.weights.bold, color: colors.text },
-  photoPrice: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
+  photoTop: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: spacing.sm },
+  photoTitle: { flex: 1, minWidth: 0, fontSize: 17, fontWeight: typography.weights.bold, color: colors.text },
+  photoPrice: { flexShrink: 1, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
   photoSub: { fontSize: typography.sizes.small, color: colors.sub },
-  photoBottom: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
-  photoCta: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
-  photoTime: { fontSize: typography.sizes.caption, color: colors.muted },
+  photoBottom: { flexDirection: "row", flexWrap: "wrap", justifyContent: "space-between", alignItems: "center", gap: spacing.xs },
+  photoCta: { flexShrink: 1, fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
+  photoTime: { flexShrink: 1, fontSize: typography.sizes.caption, color: colors.muted },
   metaRow: { flexDirection: "row", alignItems: "center", gap: 4 },
-  pillOk: { backgroundColor: colors.greenBg, borderRadius: radius.pill, paddingHorizontal: 14, height: 26, justifyContent: "center", flexDirection: "row", alignItems: "center", gap: 4 },
+  pillOk: { backgroundColor: colors.greenBg, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: spacing.xs, minHeight: layout.pillMinHeight, justifyContent: "center", flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.xs },
   pillOkText: { fontSize: typography.sizes.caption, color: colors.green, fontWeight: typography.weights.semibold },
   pillWarn: { backgroundColor: colors.amberBg },
   pillWarnText: { color: colors.amber },
@@ -858,7 +900,7 @@ const styles = StyleSheet.create({
   checkCircle: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.green, alignItems: "center", justifyContent: "center" },
   checkTitle: { fontSize: 17, fontWeight: typography.weights.bold, color: colors.text, textAlign: "center" },
 
-  stepper: { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.white, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14 },
+  stepper: { minHeight: 44, borderRadius: radius.md, borderWidth: 1, borderColor: colors.borderStrong, backgroundColor: colors.white, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 14 },
   stepperLabel: { fontSize: 14, color: colors.text },
   stepperRight: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
   stepperQty: { fontSize: 15, fontWeight: typography.weights.bold, color: colors.primary },

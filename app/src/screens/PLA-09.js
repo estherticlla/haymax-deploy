@@ -12,6 +12,7 @@ import useApi from "../hooks/useApi";
 import { getPlanSemanaDe, eliminarPlan, generarListaCompras, planificarPlato, getMotor } from "../lib/api";
 import { ingredienteAlcanza, soles } from "../lib/domain";
 import { resolverImagen } from "../lib/imagenes";
+import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
 import {
   DIAS_CORTOS,
   hoyIso,
@@ -32,6 +33,11 @@ const PLATOS_META = 21; // 7 días x 3 comidas
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const MESES_ABREV = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
+function fechaAccesible(iso) {
+  const fecha = new Intl.DateTimeFormat("es-PE", { weekday: "long", day: "numeric", month: "long" }).format(deIso(iso));
+  return fecha.charAt(0).toUpperCase() + fecha.slice(1);
+}
+
 export default function PLA_09({ fecha }) {
   const hoy = hoyIso();
   const [offsetSemana, setOffsetSemana] = useState(0);
@@ -45,7 +51,10 @@ export default function PLA_09({ fecha }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [refresco, setRefresco] = useState(0);
-  const { data: motor, loading: motorCargando } = useApi(getMotor);
+  const { data: motor, loading: motorCargando } = useApi(async () => {
+    const [disponibilidad, preferencias] = await Promise.all([getMotor(), leerPreferencias()]);
+    return { ...disponibilidad, recetas: filtrarRecetasPorPreferencias(disponibilidad.recetas || [], preferencias) };
+  });
   const recargar = useCallback(() => setRefresco((r) => r + 1), [setRefresco]);
   const lunes = sumarDiasIso(lunesBase, offsetSemana * 7);
 
@@ -211,7 +220,7 @@ export default function PLA_09({ fecha }) {
         <Text style={styles.selSemana}>{`Semana ${semanaNumero(lunes)}`}</Text>
       </View>
       <View style={styles.diasFila}>
-        <Flecha icon="chevron-back" onPress={() => moverSemana(-1)} disabled={ocupado} />
+        <Flecha icon="chevron-back" accessibilityLabel="Semana anterior" onPress={() => moverSemana(-1)} disabled={ocupado} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.diasScroll}>
           {dias.map((d) => {
             const activo = d.iso === diaSel;
@@ -219,16 +228,19 @@ export default function PLA_09({ fecha }) {
               <Pressable
                 key={d.iso}
                 onPress={() => setSel(d.iso)}
+                accessibilityRole="button"
+                accessibilityLabel={`${d.corto} ${d.num}, ${fechaAccesible(d.iso)}${d.esHoy ? ", hoy (HOY)" : ""}`}
+                accessibilityState={{ selected: activo, disabled: false }}
                 style={[styles.diaChip, d.esHoy && styles.diaChipHoy, activo && !d.esHoy && styles.diaChipSel]}
               >
                 {d.esHoy && <Text style={styles.diaChipHoyTag}>HOY</Text>}
-                <Text style={[styles.diaChipDow, (activo || d.esHoy) && styles.diaChipTextoOn]}>{d.corto}</Text>
-                <Text style={[styles.diaChipNum, (activo || d.esHoy) && styles.diaChipTextoOn]}>{d.num}</Text>
+                <Text style={[styles.diaChipDow, d.esHoy ? styles.diaChipTextoOn : activo ? styles.diaChipTextoSel : null]}>{d.corto}</Text>
+                <Text style={[styles.diaChipNum, d.esHoy ? styles.diaChipTextoOn : activo ? styles.diaChipTextoSel : null]}>{d.num}</Text>
               </Pressable>
             );
           })}
         </ScrollView>
-        <Flecha icon="chevron-forward" onPress={() => moverSemana(1)} disabled={ocupado} />
+        <Flecha icon="chevron-forward" accessibilityLabel="Semana siguiente" onPress={() => moverSemana(1)} disabled={ocupado} />
       </View>
 
       <View style={styles.menuRow}>
@@ -236,7 +248,7 @@ export default function PLA_09({ fecha }) {
           {`Menú del ${bonito.charAt(0).toUpperCase() + bonito.slice(1)}`}
         </Text>
         <K.Chips items={[`${planesDia.length} platos`]} ok />
-        <Pressable onPress={sugerir} hitSlop={6} style={({ pressed }) => pressed && styles.pressOn}>
+        <Pressable onPress={sugerir} disabled={ocupado || !motor} accessibilityRole="button" accessibilityLabel={motorCargando ? "Sugerir…" : "Sugerir auto"} accessibilityState={{ disabled: ocupado || !motor, busy: motorCargando }} hitSlop={6} style={({ pressed }) => pressed && styles.pressOn}>
           <Text style={styles.menuSugerir}>{motorCargando ? "Sugerir…" : "Sugerir auto"}</Text>
         </Pressable>
       </View>
@@ -257,13 +269,16 @@ export default function PLA_09({ fecha }) {
             ) : (
               <Pressable
                 onPress={() => go("PLA-06", { fecha: diaSel, comida })}
+                accessibilityRole="button"
+                accessibilityLabel={`+ Agregar receta o insumo rápido. ${sugerenciaVacia}`}
+                accessibilityState={{ disabled: false }}
                 style={({ pressed }) => [styles.vacio, pressed && styles.pressOn]}
               >
                 <View style={styles.vacioMas}>
                   <Icon name="add" size={26} color={colors.primary} />
                 </View>
                 <Text style={styles.vacioTitulo}>+ Agregar receta o insumo rápido</Text>
-                <Text style={styles.vacioSub} numberOfLines={2}>
+                <Text style={styles.vacioSub}>
                   {sugerenciaVacia}
                 </Text>
               </Pressable>
@@ -305,6 +320,9 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
     <View style={styles.bloque}>
       <Pressable
         onPress={() => go("REC-02", { receta: r.id })}
+        accessibilityRole="button"
+        accessibilityLabel={`${r.nombre}. Ver receta`}
+        accessibilityState={{ disabled: false }}
         style={({ pressed }) => [styles.fotoWrap, pressed && styles.pressOn]}
       >
         {fuente ? (
@@ -327,7 +345,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
         </View>
       </Pressable>
 
-      <Text style={styles.titulo} onPress={() => go("REC-02", { receta: r.id })} numberOfLines={2}>
+      <Text style={styles.titulo} onPress={() => go("REC-02", { receta: r.id })}>
         {r.nombre}
       </Text>
       <View style={styles.metaFila}>
@@ -337,7 +355,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
       {v.faltantes.length > 0 ? (
         <View style={styles.metaFila}>
           <Icon name="alert-circle-outline" size={13} color={colors.amber} />
-          <Text style={[styles.meta, styles.metaFalta]} numberOfLines={2}>
+          <Text style={[styles.meta, styles.metaFalta]}>
             {`Falta: ${v.faltantes.slice(0, 3).join(", ")}${v.faltantes.length > 3 ? "…" : ""}`}
           </Text>
         </View>
@@ -347,7 +365,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
         <View style={styles.accionBtn}>
           <Button label="⇄  Cambiar plato" variant="outline" onPress={() => go("PLA-06", { fecha: fila.fecha, comida: fila.comida, planId: fila.id })} />
         </View>
-        <Pressable onPress={() => quitar(fila.id)} disabled={ocupado} hitSlop={8} style={({ pressed }) => [pressed && styles.pressOn, styles.basuraWrap]}>
+        <Pressable onPress={() => quitar(fila.id)} disabled={ocupado} accessibilityRole="button" accessibilityLabel={`Quitar ${r.nombre} del plan`} accessibilityState={{ disabled: ocupado }} hitSlop={8} style={({ pressed }) => [pressed && styles.pressOn, styles.basuraWrap]}>
           <View style={styles.basura}>
             <Icon name="trash-outline" size={18} color={colors.red} />
           </View>
@@ -357,11 +375,14 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
   );
 }
 
-function Flecha({ icon, onPress, disabled }) {
+function Flecha({ icon, accessibilityLabel, onPress, disabled }) {
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
+      accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
+      accessibilityState={{ disabled: !!disabled }}
       hitSlop={10}
       style={({ pressed }) => [pressed && { opacity: 0.5 }, disabled && { opacity: 0.35 }]}
     >
@@ -390,6 +411,7 @@ const styles = StyleSheet.create({
 
   selRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
     marginTop: spacing.sm,
@@ -406,19 +428,20 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     alignItems: "center",
     justifyContent: "center",
     gap: 1,
   },
   diaChipHoy: { backgroundColor: colors.primary, borderColor: colors.primary },
-  diaChipSel: { borderColor: colors.primary, borderWidth: 2 },
+  diaChipSel: { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 2 },
   diaChipHoyTag: { fontSize: 8, fontWeight: typography.weights.bold, color: colors.white, letterSpacing: 1 },
   diaChipDow: { fontSize: typography.sizes.caption, color: colors.sub },
   diaChipNum: { fontSize: typography.sizes.body, fontWeight: typography.weights.bold, color: colors.text },
   diaChipTextoOn: { color: colors.white },
+  diaChipTextoSel: { color: colors.primary },
 
-  menuRow: { flexDirection: "row", alignItems: "center", gap: 8, marginTop: spacing.sm, marginBottom: 4 },
+  menuRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, marginBottom: 4 },
   menuTitulo: { flex: 1, fontSize: typography.sizes.subtitle, fontWeight: typography.weights.bold, color: colors.text },
   menuSugerir: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
 
@@ -473,7 +496,7 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.white,
     alignItems: "center",
     justifyContent: "center",
@@ -482,7 +505,7 @@ const styles = StyleSheet.create({
   vacio: {
     borderRadius: radius.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     backgroundColor: colors.field,
     alignItems: "center",
     padding: spacing.md,

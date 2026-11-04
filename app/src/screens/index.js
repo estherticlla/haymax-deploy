@@ -38,7 +38,8 @@ export const SCREEN_IDS = [
   "AJU-01",
   "AJU-02",
   "AJU-03",
-  "AJU-04"
+  "AJU-04",
+  "AYU-01"
 ];
 
 export const SCREEN_META = {
@@ -173,7 +174,7 @@ export const SCREEN_META = {
     "hasFab": false
   },
   "COM-01": {
-    "name": "Lista de compras",
+    "name": "Ingredientes faltantes",
     "tab": 0,
     "hasFab": false
   },
@@ -216,6 +217,11 @@ export const SCREEN_META = {
     "name": "Plan de suscripción (freemium)",
     "tab": 3,
     "hasFab": false
+  },
+  "AYU-01": {
+    "name": "Ayuda y preguntas frecuentes",
+    "tab": null,
+    "hasFab": false
   }
 };
 
@@ -255,6 +261,7 @@ const LOADERS = {
   "AJU-02": () => require("./AJU-02").default,
   "AJU-03": () => require("./AJU-03").default,
   "AJU-04": () => require("./AJU-04").default,
+  "AYU-01": () => require("./AYU-01").default,
 };
 
 export function getScreen(id) {

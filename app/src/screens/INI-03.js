@@ -5,13 +5,17 @@ import { go } from "../lib/nav";
 import useApi from "../hooks/useApi";
 import { getRecetasPorDistrito } from "../lib/api";
 import { soles } from "../lib/domain";
+import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
 
 const NOMBRE = "Recetas cerca de ti (por distrito)";
 const DISTRITOS = ["Surquillo", "Miraflores", "Lima Norte"];
 
 export default function INI_03() {
   const [distrito, setDistrito] = useState("Surquillo");
-  const { data, loading, error, recargar } = useApi(() => getRecetasPorDistrito(distrito));
+  const { data, loading, error, recargar } = useApi(async () => {
+    const [recetas, preferencias] = await Promise.all([getRecetasPorDistrito(distrito), leerPreferencias()]);
+    return filtrarRecetasPorPreferencias(recetas || [], preferencias);
+  });
   const primera = useRef(true);
 
   useEffect(() => {

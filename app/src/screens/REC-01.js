@@ -6,13 +6,17 @@ import { go } from "../lib/nav";
 import useApi from "../hooks/useApi";
 import { getMotor } from "../lib/api";
 import { soles } from "../lib/domain";
+import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
 
 const NOMBRE = "¿Qué puedo cocinar? (motor)";
 const FILTROS = ["Completas", "Casi listas", "Rápidas", "Favoritas"];
 
 export default function REC_01() {
   const [filtro, setFiltro] = useState("Completas");
-  const { data, loading, error, recargar } = useApi(getMotor);
+  const { data, loading, error, recargar } = useApi(async () => {
+    const [motor, preferencias] = await Promise.all([getMotor(), leerPreferencias()]);
+    return { ...motor, recetas: filtrarRecetasPorPreferencias(motor.recetas || [], preferencias) };
+  });
 
   if (loading) {
     return (
@@ -56,7 +60,7 @@ export default function REC_01() {
   return (
     <Screen id="REC-01" name={NOMBRE}>
       <K.Chips items={FILTROS} active={filtro} onPressItem={setFiltro} />
-      <K.SectionTitle title={titulo} />
+      {filtradas.length > 0 ? <K.SectionTitle title={titulo} /> : null}
 
       {filtradas.length === 0 ? (
         <K.EmptyState

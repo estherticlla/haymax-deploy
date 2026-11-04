@@ -27,7 +27,6 @@ export default function AJU_04() {
       </View>
 
       <Button label="Suscribirme" full onPress={() => go("AJU-01")} />
-      <K.LinkText label="Probar el escaneo ilimitado (Premium)" onPress={() => go("DES-05")} />
     </Screen>
   );
 }

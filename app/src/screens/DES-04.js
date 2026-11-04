@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Alert, Platform } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import Screen from "../components/Screen";
@@ -25,12 +25,13 @@ function mimeTypeDe(asset) {
   return extensiones[extension] || "image/jpeg";
 }
 
-export default function DES_04() {
-  const [modo, setModo] = useState("Boleta");
+export default function DES_04({ autoPick }) {
+  const [modo] = useState("Boleta");
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState("");
+  const autoPickIniciado = useRef(false);
 
-  const analizar = async (resultado) => {
+  const analizar = useCallback(async (resultado) => {
     if (resultado.canceled || !resultado.assets?.length) return;
     const asset = resultado.assets[0];
     if (asset.type && asset.type !== "image") {
@@ -54,7 +55,7 @@ export default function DES_04() {
       uri: asset.uri,
     });
     go("DES-05");
-  };
+  }, [modo]);
 
   const tomarFoto = async () => {
     if (procesando) return;
@@ -76,13 +77,13 @@ export default function DES_04() {
       });
       await analizar(resultado);
     } catch (e) {
-      setError(e.message || "No se pudo abrir la cámara. Puedes seleccionar una imagen de tu dispositivo.");
+      setError(e.message || "No se pudo abrir la cámara. Inténtalo nuevamente.");
     } finally {
       setProcesando(false);
     }
   };
 
-  const elegirImagen = async () => {
+  const elegirImagen = useCallback(async () => {
     if (procesando) return;
     setProcesando(true);
     try {
@@ -99,21 +100,32 @@ export default function DES_04() {
     } finally {
       setProcesando(false);
     }
-  };
+  }, [procesando, analizar]);
+
+  useEffect(() => {
+    if ((autoPick === true || autoPick === "true") && !autoPickIniciado.current) {
+      autoPickIniciado.current = true;
+      elegirImagen();
+    }
+  }, [autoPick, elegirImagen]);
 
   return (
-    <Screen id="DES-04" name="Escanear boleta o lista">
-      <K.Chips items={["Boleta", "Lista de compras"]} active={modo} onPressItem={setModo} />
+    <Screen id="DES-04" name="Agregar insumos a despensa">
+      <K.SectionTitle title="Agregar insumo por foto" />
       <K.CameraView
         modo={modo}
-        hint={modo === "Boleta" ? "Toma una foto nítida de la boleta completa" : "Toma una foto nítida de la lista completa"}
+        hint="Encuadra tu boleta o lista con buena luz"
+        onPress={tomarFoto}
       />
-      <Button label="Tomar foto" full loading={procesando} onPress={tomarFoto} />
-      <Button label="Subir imagen" variant="outline" full disabled={procesando} onPress={elegirImagen} />
+      <Button
+        label="Subir archivo de galería"
+        variant="outline"
+        full
+        disabled={procesando}
+        onPress={elegirImagen}
+      />
       {error ? <K.ErrorState text={error} /> : null}
       {procesando ? <K.Loading text="Analizando la imagen con Gemini…" /> : null}
-      <K.Note text="Gemini extraerá los productos visibles. Podrás revisar y corregir los datos antes de guardarlos." />
-      <K.LinkText label="Elegir otro tipo de documento" onPress={() => go("DES-03")} />
     </Screen>
   );
 }

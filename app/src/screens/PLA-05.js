@@ -12,6 +12,11 @@ import { cuadriculaMes, hoyIso, deIso, MESES_ES } from "../lib/fechas";
 const NOMBRE = "Calendario de planificación";
 const COMIDAS = ["desayuno", "almuerzo", "cena"];
 
+function fechaAccesible(iso) {
+  const fecha = new Intl.DateTimeFormat("es-PE", { weekday: "long", day: "numeric", month: "long" }).format(deIso(iso));
+  return fecha.charAt(0).toUpperCase() + fecha.slice(1);
+}
+
 // Grilla de 6 semanas x 7 días (arranca en lunes) — ver lib/fechas.js.
 function armarGrilla(anio, mes0) {
   const celdas = cuadriculaMes(anio, mes0);
@@ -20,9 +25,8 @@ function armarGrilla(anio, mes0) {
   return { filas, desde: celdas[0].iso, hasta: celdas[celdas.length - 1].iso };
 }
 
-// Calendario mensual interactivo: navega entre meses y años, marca con "F"
-// los días que ya tienen las 3 comidas planificadas y al tocar un día abre
-// la selección de platillo (PLA-06) para ese día.
+// Calendario mensual interactivo: marca los días completos y permite abrir
+// el plan existente o planificar comidas en una fecha disponible.
 export default function PLA_05() {
   const hoy = hoyIso();
   const dHoy = deIso(hoy);
@@ -77,37 +81,21 @@ export default function PLA_05() {
     setAnio(t.getFullYear());
     setMes0(t.getMonth());
   };
-  const moverAnio = (d) => setAnio((a) => a + d);
-  const hoyBtn = () => {
-    setAnio(dHoy.getFullYear());
-    setMes0(dHoy.getMonth());
-  };
-
   return (
     <Screen id="PLA-05" name={NOMBRE}>
+      <Text style={styles.pageTitle} accessibilityRole="header">Mi planificación</Text>
       <View style={styles.cabecera}>
         <View style={styles.mesFila}>
-          <Flecha icon="chevron-back" onPress={() => moverMes(-1)} />
+          <Flecha icon="chevron-back" accessibilityLabel="Mes anterior" onPress={() => moverMes(-1)} />
           <Text style={styles.mesTitulo}>
             {MESES_ES[mes0].charAt(0).toUpperCase() + MESES_ES[mes0].slice(1)} {anio}
           </Text>
-          <Flecha icon="chevron-forward" onPress={() => moverMes(1)} />
-        </View>
-        <View style={styles.anioFila}>
-          <Pressable onPress={moverAnio.bind(null, -1)} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.5 }}>
-            <Text style={styles.anioBoton}>{String(anio - 1)}</Text>
-          </Pressable>
-          <Pressable onPress={hoyBtn} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.5 }}>
-            <Text style={[styles.anioBoton, styles.anioBotonActivo]}>Hoy</Text>
-          </Pressable>
-          <Pressable onPress={moverAnio.bind(null, 1)} hitSlop={8} style={({ pressed }) => pressed && { opacity: 0.5 }}>
-            <Text style={styles.anioBoton}>{String(anio + 1)}</Text>
-          </Pressable>
+          <Flecha icon="chevron-forward" accessibilityLabel="Mes siguiente" onPress={() => moverMes(1)} />
         </View>
       </View>
 
       <View style={styles.semanaRow}>
-        {["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"].map((l) => (
+        {["LUN", "MAR", "MIÉ", "JUE", "VIE", "SÁB", "DOM"].map((l) => (
           <Text key={l} style={styles.semanaDia}>
             {l}
           </Text>
@@ -123,22 +111,38 @@ export default function PLA_05() {
               {fila.map((celda) => {
                 const marca = marcas[celda.iso];
                 const completo = !!(marca && marca.completo);
+                const pasada = celda.iso < hoy;
+                const deshabilitada = celda.fuera || pasada;
+                const etiquetaDia = pasada
+                  ? `${fechaAccesible(celda.iso)}, Fecha pasada`
+                  : celda.fuera
+                    ? `${fechaAccesible(celda.iso)}, fuera del mes`
+                    : completo
+                      ? `${fechaAccesible(celda.iso)}, Día completo, toca para ver el plan`
+                      : `${fechaAccesible(celda.iso)}, Día disponible, toca para planificar`;
                 return (
                   <Pressable
                     key={celda.iso}
-                    onPress={celda.fuera ? undefined : () => go("PLA-06", { fecha: celda.iso })}
-                    disabled={celda.fuera}
+                    onPress={deshabilitada ? undefined : () => go(completo ? "PLA-09" : "PLA-06", { fecha: celda.iso })}
+                    disabled={deshabilitada}
+                    accessibilityRole="button"
+                    accessibilityLabel={etiquetaDia}
+                    accessibilityState={{ disabled: deshabilitada }}
+                    accessibilityElementsHidden={celda.fuera}
+                    importantForAccessibility={celda.fuera ? "no-hide-descendants" : undefined}
                     style={[
                       styles.celda,
-                      celda.fuera && styles.celdaFuera,
+                      completo && !pasada && !celda.fuera && styles.celdaCompleta,
                       celda.iso === hoy && styles.celdaHoy,
                     ]}
                   >
-                    <Text style={[styles.num, celda.fuera && styles.numFuera, celda.iso === hoy && styles.numHoy]}>
-                      {celda.dia}
-                    </Text>
-                    {completo ? (
-                      <Text style={styles.full}>F</Text>
+                    {!celda.fuera ? (
+                      <Text style={[styles.num, pasada && styles.numPasada, celda.iso === hoy && styles.numHoy]}>
+                        {celda.dia}
+                      </Text>
+                    ) : null}
+                    {celda.fuera ? null : completo ? (
+                      <Icon name="✓" size={typography.sizes.subtitle} color={celda.iso === hoy ? colors.white : colors.green} />
                     ) : (
                       <View style={styles.puntos}>
                         {marca &&
@@ -157,60 +161,57 @@ export default function PLA_05() {
 
       {cargando ? <K.Loading text="Cargando tu plan…" /> : null}
 
-      <K.Note text='La "F" indica un día completo: desayuno, almuerzo y cena ya planificados. Toca cualquier día para armar el menú.' />
-      <Button label="Ver mi plan de la semana" variant="outline" full onPress={() => go("PLA-09", { fecha: hoy })} />
+      <View style={styles.pie}>
+        <K.Note text="El check indica los días completos: desayuno, almuerzo y cena ya planificados." />
+        <Button label="Ver mi plan de la semana" variant="primary" full onPress={() => go("PLA-09", { fecha: hoy })} />
+      </View>
     </Screen>
   );
 }
 
-function Flecha({ icon, onPress }) {
+function Flecha({ icon, accessibilityLabel, onPress }) {
   return (
-    <Pressable onPress={onPress} hitSlop={10} style={({ pressed }) => pressed && { opacity: 0.5 }}>
-      <Icon name={icon} size={22} color={colors.primary} />
+    <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={accessibilityLabel} accessibilityState={{ disabled: false }} hitSlop={10} style={({ pressed }) => [styles.flecha, pressed && styles.flechaPresionada]}>
+      <Icon name={icon} size={typography.sizes.label} color={colors.primary} />
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  cabecera: {
-    backgroundColor: colors.primaryLight,
-    marginHorizontal: -spacing.md,
-    marginTop: -spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.sm,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 4,
+  pageTitle: {
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.sm,
   },
-  mesFila: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  mesTitulo: { fontSize: 22, fontWeight: typography.weights.bold, color: colors.text },
-  anioFila: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 18, marginTop: 2 },
-  anioBoton: { fontSize: 13, color: colors.muted, fontWeight: typography.weights.semibold },
-  anioBotonActivo: { color: colors.primary, fontWeight: typography.weights.bold },
-
-  semanaRow: { flexDirection: "row", paddingHorizontal: 2 },
+  cabecera: {
+    paddingTop: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  mesFila: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
+  mesTitulo: { flex: 1, textAlign: "center", fontSize: typography.sizes.title, fontWeight: typography.weights.semibold, color: colors.text },
+  flecha: { width: spacing.xl, alignItems: "center", justifyContent: "center" },
+  flechaPresionada: { opacity: 0.5 },
+  semanaRow: { flexDirection: "row", marginBottom: spacing.xs },
   semanaDia: { flex: 1, textAlign: "center", fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: colors.muted },
 
-  grilla: { gap: 4 },
-  fila: { flexDirection: "row", gap: 4 },
+  grilla: { gap: spacing.md },
+  fila: { flexDirection: "row", gap: spacing.xs },
   celda: {
     flex: 1,
-    aspectRatio: 0.92,
+    aspectRatio: 0.9,
     borderRadius: radius.sm,
-    backgroundColor: colors.white,
-    borderWidth: 1,
-    borderColor: colors.border,
     alignItems: "center",
     justifyContent: "center",
-    gap: 2,
+    gap: spacing.xs,
   },
-  celdaFuera: { backgroundColor: colors.field, borderColor: colors.field },
-  celdaHoy: { backgroundColor: colors.primary, borderColor: colors.primary },
-  num: { fontSize: 13, fontWeight: typography.weights.semibold, color: colors.text },
+  celdaCompleta: { backgroundColor: colors.greenBg },
+  celdaHoy: { backgroundColor: colors.primary },
+  num: { fontSize: typography.sizes.label, fontWeight: typography.weights.semibold, color: colors.text },
   numFuera: { color: colors.muted },
+  numPasada: { color: colors.muted },
   numHoy: { color: colors.white },
-  full: { fontSize: 12, fontWeight: typography.weights.bold, color: colors.green, marginTop: -2 },
   puntos: { flexDirection: "row", gap: 2 },
   punto: { width: 5, height: 5, borderRadius: 3, backgroundColor: colors.primary },
+  pie: { gap: spacing.md, marginTop: spacing.sm },
 });

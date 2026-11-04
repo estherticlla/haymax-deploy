@@ -34,6 +34,7 @@ export default function SAL_01() {
 
       <K.SectionTitle title="Esta semana cocinaste" />
       <View style={styles.rows}>
+        {/* Proteínas, verduras y frituras siguen usando COCINADAS estático: el backend aún no expone esos datos por semana. */}
         {data.cocinadas.map((c) => (
           <K.Row
             key={c.label}
@@ -50,7 +51,7 @@ export default function SAL_01() {
         <K.Card key={s.id} title={s.title} sub={s.sub} />
       ))}
 
-      <Button label="Cocinar algo más balanceado" full onPress={() => go("REC-01")} />
+      <Button label="Cocinar algo más balanceado" full onPress={() => go("PLA-05")} />
     </Screen>
   );
 }

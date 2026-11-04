@@ -15,6 +15,7 @@ export const colors = {
   red: "#C62828",
   redBg: "#FDECEA",
   border: "#E6E6E6",
+  borderStrong: "#888888",
   field: "#F7F7F7",
   track: "#EEEEEE",
   greyBg: "#F5F5F5",
@@ -39,6 +40,12 @@ export const layout = {
   padding: 16,
   contentTop: 104,
   tabBarY: 748,
+  rowMinHeight: 48,
+  chipMinHeight: 32,
+  pillMinHeight: 26,
+  appBarMinHeight: 56,
+  tabMinHeight: 48,
+  emptyStateMinHeight: 130,
 };
 
 export const shadows = {

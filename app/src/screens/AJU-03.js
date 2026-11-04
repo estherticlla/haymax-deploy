@@ -70,7 +70,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     padding: spacing.md,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
   },
   avatar: {
     width: 44,

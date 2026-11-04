@@ -3,6 +3,7 @@ import { go } from "../lib/nav";
 import Button from "./Button";
 import { stripEmoji, isEmoji } from "./Icon";
 import * as K from "./kit";
+import { etiqueta } from "../lib/a11y";
 
 // Renderiza un item del wireframe (misma forma que prototipo/code.js) con el
 // kit de UI. Si el indice tiene destino en `links`, el elemento navega.
@@ -93,6 +94,15 @@ function renderOne(it, onPress) {
 const FLUSH = ["row", "sec", "greet", "text", "title"];
 const SELF_PRESS = ["sec", "card", "row", "link", "btn", "btno"];
 
+function labelForItem(it) {
+  const values = it.slice(1).flatMap((value) => {
+    if (Array.isArray(value)) return value.map((item) => (item && typeof item === "object" ? item.label || item.title : item));
+    if (value && typeof value === "object") return [value.title, value.sub, value.label, value.cta, value.status];
+    return [value];
+  });
+  return etiqueta(...values.filter((value) => typeof value === "string" || typeof value === "number"));
+}
+
 export default function Items({ items = [], links = {} }) {
   return (
     <View style={styles.list}>
@@ -104,7 +114,7 @@ export default function Items({ items = [], links = {} }) {
         const flush = FLUSH.indexOf(it[0]) !== -1;
         const node =
           onPress && SELF_PRESS.indexOf(it[0]) === -1 ? (
-            <Pressable onPress={onPress} style={({ pressed }) => pressed && styles.pressed}>
+            <Pressable onPress={onPress} accessibilityRole="button" accessibilityLabel={labelForItem(it) || String(it[0])} accessibilityState={{ disabled: false }} style={({ pressed }) => pressed && styles.pressed}>
               {el}
             </Pressable>
           ) : (

@@ -7,7 +7,7 @@ import { go } from "../lib/nav";
 export default function ACC_01() {
   return (
     <Screen id="ACC-01" name="Bienvenida">
-      <Pressable style={styles.center} onPress={() => go("ACC-02")} accessible accessibilityLabel="Iniciar sesión">
+      <Pressable style={styles.center} onPress={() => go("ACC-02")} accessibilityRole="button" accessibilityLabel="Haymax. Cocina con lo que ya tienes. Iniciar sesión" accessibilityState={{ disabled: false }} accessible>
         <K.Logo tagline="Cocina con lo que ya tienes" />
       </Pressable>
       <View style={styles.actions}>

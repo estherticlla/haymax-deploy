@@ -3,7 +3,6 @@ import * as K from "../components/kit";
 import { go } from "../lib/nav";
 import useApi from "../hooks/useApi";
 import { getInicio } from "../lib/api";
-import { precioPorPorcion, soles } from "../lib/domain";
 
 const NOMBRE = "Inicio: plato planeado hoy";
 
@@ -25,7 +24,7 @@ export default function INI_01() {
     );
   }
 
-  const { hoy, primerNombre, inicial, plan, recetaHoy, sugerida, stats, shop, balance, atencion } = data;
+  const { hoy, primerNombre, inicial, plan, recetaHoy, stats, shop, balance, atencion } = data;
   const comida = (plan && plan.comida) || "almuerzo";
   const porciones = (plan && plan.porciones) || recetaHoy.porciones;
   const hayPlan = !!plan;
@@ -47,8 +46,8 @@ export default function INI_01() {
         onPress={() => (hayPlan ? go("REC-02", { receta: recetaHoy.id }) : go("PLA-05"))}
       />
       <K.Card
-        title="Lista de compras"
-        sub={`${shop.listos} de ${shop.total} artículos listos`}
+        title="Ingredientes faltantes"
+        sub={`${shop.listos} de ${shop.total} ingredientes listos`}
         right="Ver"
         onPress={() => go("COM-01")}
       />
@@ -90,22 +89,14 @@ export default function INI_01() {
           { label: `${stats.vencidos} vencidos`, tone: "red" },
         ]}
       />
-      {atencion > 0 ? (
-        <K.Note
-          text={`${atencion} ${atencion === 1 ? "insumo requiere" : "insumos requieren"} atención: revísalos hoy.`}
-          onPress={() => go("PRE-03")}
-        />
-      ) : null}
 
-      <K.SectionTitle title="¿Qué puedo cocinar?" action="Abrir motor" onPress={() => go("REC-01")} />
-      <K.Card
-        title={sugerida.nombre}
-        sub={`${sugerida.porciones} porciones · ${sugerida.minutos} min · ${soles(precioPorPorcion(sugerida))} por porción`}
-        right="Ver"
-        onPress={() => go("REC-02", { receta: sugerida.id })}
+      <K.SectionTitle title="Tu impacto" />
+      <K.Stat
+        value="S/ 42"
+        eyebrow="Ahorro vs delivery"
+        label="Ahorro acumulado"
+        delta="+ S/ 12"
       />
-
-      <K.Stat value="S/ 42" label="Ahorro acumulado vs delivery" delta="+ S/ 12" />
       <K.BalanceCard
         label="BALANCE DE LA SEMANA"
         pct={`${balance.pct}%`}
@@ -113,7 +104,6 @@ export default function INI_01() {
         link="Ver resumen nutricional →"
         onPress={() => go("SAL-01")}
       />
-      <K.SectionTitle title="Precios e insumos cerca de ti" action="Otros distritos" onPress={() => go("INI-03")} />
     </Screen>
   );
 }

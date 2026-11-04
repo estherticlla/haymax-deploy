@@ -20,15 +20,18 @@ export default function AJU_01() {
   });
   const [cerrando, setCerrando] = useState(false);
   const [guardandoNotif, setGuardandoNotif] = useState(false);
+  const [guardandoAnticipacion, setGuardandoAnticipacion] = useState(false);
   const [errorNotif, setErrorNotif] = useState("");
+  const [errorAnticipacion, setErrorAnticipacion] = useState("");
 
   const sesion = data && data.sesion;
   const prefs =
     (data && data.prefs) ||
-    { notificaciones: true, exclusiones: [], tiposExcluidos: [] };
+    { notificaciones: true, diasAvisoVencimiento: 2, exclusiones: [], tiposExcluidos: [] };
 
   const usuario = (sesion && (sesion.nombre || sesion.usuario)) || "Mi cuenta";
   const notif = !!prefs.notificaciones;
+  const diasAviso = Number(prefs.diasAvisoVencimiento) === 1 ? 1 : 2;
   const exclusionesActivas =
     (prefs.exclusiones || []).length + (prefs.tiposExcluidos || []).length;
 
@@ -38,6 +41,7 @@ export default function AJU_01() {
     try {
       await cerrarSesion();
     } finally {
+      setCerrando(false);
       replaceTo("ACC-02");
     }
   };
@@ -57,6 +61,22 @@ export default function AJU_01() {
     }
   };
 
+  const cambiarAnticipacion = async (opcion) => {
+    const dias = opcion === "1 día" ? 1 : 2;
+    if (guardandoAnticipacion || dias === diasAviso) return;
+    setGuardandoAnticipacion(true);
+    setErrorAnticipacion("");
+    try {
+      const nuevas = await guardarPreferencias({ diasAvisoVencimiento: dias });
+      anunciar(`Avisos configurados con ${nuevas.diasAvisoVencimiento} ${nuevas.diasAvisoVencimiento === 1 ? "día" : "días"} de anticipación`);
+      recargar({ silencioso: true });
+    } catch (e) {
+      setErrorAnticipacion((e && e.message) || "No se pudo guardar la anticipación.");
+    } finally {
+      setGuardandoAnticipacion(false);
+    }
+  };
+
   if (error) {
     return (
       <Screen id="AJU-01" name={NOMBRE}>
@@ -67,6 +87,7 @@ export default function AJU_01() {
 
   return (
     <Screen id="AJU-01" name={NOMBRE}>
+      <Text style={styles.pageTitle} accessibilityRole="header">Ajustes</Text>
       <Text style={styles.section} accessibilityRole="header">Mi cuenta</Text>
       <SettingRow
         icon="person-outline"
@@ -89,6 +110,20 @@ export default function AJU_01() {
         hint="Activa o desactiva los recordatorios de vencimiento"
       />
       {errorNotif ? <K.Note text={errorNotif} alerta /> : null}
+
+      <K.SectionTitle title="Avisar con 1 o 2 días de anticipación" />
+      <K.Chips
+        items={["1 día", "2 días"]}
+        active={diasAviso === 1 ? "1 día" : "2 días"}
+        onPressItem={cambiarAnticipacion}
+        disabled={guardandoAnticipacion}
+        accessibilityRole="radio"
+        groupRole="radiogroup"
+        groupLabel="Avisar con 1 o 2 días de anticipación"
+        minTarget
+        hintItem="Elige cuándo avisarte antes del vencimiento"
+      />
+      {errorAnticipacion ? <K.Note text={errorAnticipacion} alerta /> : null}
 
       <Text style={styles.section} accessibilityRole="header">Preferencias</Text>
       <SettingRow
@@ -134,7 +169,7 @@ function SettingRow({ icon, label, value, valueColor, onPress, disabled, hint, t
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      accessibilityRole="button"
+      accessibilityRole={toggle ? "switch" : "button"}
       accessibilityLabel={`${label}${value ? `, ${value}` : ""}`}
       accessibilityHint={hint}
       accessibilityState={{ disabled: !!disabled, checked: toggle ? !!toggleOn : undefined }}
@@ -159,6 +194,12 @@ function SettingRow({ icon, label, value, valueColor, onPress, disabled, hint, t
 }
 
 const styles = StyleSheet.create({
+  pageTitle: {
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
   section: {
     fontSize: typography.sizes.caption,
     letterSpacing: 1,

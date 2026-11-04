@@ -9,11 +9,19 @@ import useApi from "../hooks/useApi";
 import { getAlertas, eliminarInsumo } from "../lib/api";
 import { diasHasta, textoVencimiento } from "../lib/fechas";
 import { anunciar } from "../lib/a11y";
+import { leerPreferencias, filtrarVencimientos } from "../lib/preferencias";
 
 const NOMBRE = "Alerta: insumos por vencer";
 
 export default function PRE_03() {
-  const { data, loading, error, recargar } = useApi(getAlertas);
+  const { data, loading, error, recargar } = useApi(async () => {
+    const [alertas, preferencias] = await Promise.all([getAlertas(), leerPreferencias()]);
+    return {
+      ...alertas,
+      diasAviso: Number(preferencias.diasAvisoVencimiento) === 1 ? 1 : 2,
+      atencion: filtrarVencimientos(alertas.atencion || [], preferencias.diasAvisoVencimiento),
+    };
+  });
   const [ocupado, setOcupado] = useState(null);
   const [resultado, setResultado] = useState(null); // { texto, error }
 
@@ -33,7 +41,11 @@ export default function PRE_03() {
   }
 
   const atencion = data.atencion;
-  const recetas = data.recetas || [];
+  const normalizarNombre = (nombre) => String(nombre || "").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const nombresAtencion = new Set(atencion.map((insumo) => normalizarNombre(insumo.nombre)));
+  const recetas = (data.recetas || []).filter(({ usados = [] }) =>
+    usados.some((nombre) => nombresAtencion.has(normalizarNombre(nombre)))
+  );
 
   // HU-05: el insumo se marca como usado o descartado desde la misma alerta.
   const quitar = async (p, motivo) => {
@@ -57,8 +69,10 @@ export default function PRE_03() {
   return (
     <Screen id="PRE-03" name={NOMBRE}>
       <K.Banner
-        title={atencion.length > 0 ? `Vencen pronto · ${atencion.length} insumos` : "Sin alertas de vencimiento"}
-        sub="Revísalos hoy para no desperdiciarlos"
+        title={atencion.length > 0 ? `Requieren atención · ${atencion.length} insumo${atencion.length === 1 ? "" : "s"}` : "Sin alertas de vencimiento"}
+        sub={atencion.length > 0
+          ? `Revisa los insumos que vencen dentro de ${data.diasAviso} ${data.diasAviso === 1 ? "día" : "días"} o ya vencieron.`
+          : `No hay insumos que venzan en los próximos ${data.diasAviso} ${data.diasAviso === 1 ? "día" : "días"} ni vencidos.`}
         tone="PRIMARY"
       />
       {resultado ? <K.Banner title={resultado.texto} tone={resultado.error ? "RED" : "GREEN"} /> : null}
@@ -69,8 +83,8 @@ export default function PRE_03() {
         <>
           <K.SectionTitle title="Usarlos ya" />
           {atencion.map((p) => {
-            const vencido = p.estado === "vencido";
             const dias = p.fechaVencimiento ? diasHasta(p.fechaVencimiento) : null;
+            const vencido = dias == null ? p.estado === "vencido" : dias < 0;
             const estado = dias == null ? (vencido ? "Vencido — úsalo hoy" : "Por vencer") : textoVencimiento(dias);
             return (
               <View key={p.id} style={styles.item}>
@@ -80,17 +94,19 @@ export default function PRE_03() {
                   subColor={vencido ? colors.red : colors.amber}
                 />
                 <View style={styles.acciones}>
-                  <View style={styles.accion}>
-                    <Button
-                      label="Usado"
-                      variant="outline"
-                      compact
-                      full
-                      disabled={ocupado === p.id}
-                      accessibilityLabel={`Marcar ${p.nombre} como usado`}
-                      onPress={() => quitar(p, "usado")}
-                    />
-                  </View>
+                  {!vencido ? (
+                    <View style={styles.accion}>
+                      <Button
+                        label="Usado"
+                        variant="outline"
+                        compact
+                        full
+                        disabled={ocupado === p.id}
+                        accessibilityLabel={`Marcar ${p.nombre} como usado`}
+                        onPress={() => quitar(p, "usado")}
+                      />
+                    </View>
+                  ) : null}
                   <View style={styles.accion}>
                     <Button
                       label="Descartar"
@@ -102,16 +118,18 @@ export default function PRE_03() {
                       onPress={() => quitar(p, "descartado")}
                     />
                   </View>
-                  <View style={styles.accion}>
-                    <Button
-                      label="Editar"
-                      variant="ghost"
-                      compact
-                      full
-                      accessibilityLabel={`Editar ${p.nombre}`}
-                      onPress={() => go("DES-02", { insumo: p.id })}
-                    />
-                  </View>
+                  {!vencido ? (
+                    <View style={styles.accion}>
+                      <Button
+                        label="Editar"
+                        variant="ghost"
+                        compact
+                        full
+                        accessibilityLabel={`Editar ${p.nombre}`}
+                        onPress={() => go("DES-02", { insumo: p.id })}
+                      />
+                    </View>
+                  ) : null}
                 </View>
               </View>
             );

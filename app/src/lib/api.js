@@ -19,9 +19,10 @@ import {
 } from "../data/mock";
 import * as D from "./domain";
 import { API_URL } from "../config";
-import { hoyIso } from "./fechas";
+import { hoyIso, lunesDeIso, sumarDiasIso } from "./fechas";
 import { router } from "expo-router";
 import { leerSesion, guardarSesion as guardarSesionDispositivo, borrarSesion } from "./sesion";
+import { leerPreferencias, resumenVencimientos } from "./preferencias";
 
 // — Estado local efímero (compartido por ambos modos) —
 // Pendientes del registro manual (DES-06/07) y últimos agregados (DES-08).
@@ -188,6 +189,9 @@ export async function getInicio() {
   const planP = delDia.find((p) => !p.completado) || delDia[0] || null;
   const plan = planP ? aPlan(planP, rs) : null;
   const shopList = compras.map((c) => ({ ...c, listo: !!c.listo }));
+  const pantry = despensa.map(aInsumo);
+  const preferencias = await leerPreferencias();
+  const vencimientos = resumenVencimientos(pantry, preferencias.diasAvisoVencimiento);
   return {
     hoy,
     usuario: nombreCompleto,
@@ -196,10 +200,10 @@ export async function getInicio() {
     plan,
     recetaHoy: plan ? plan.receta : rs[0],
     sugerida: rs[0],
-    stats: D.pantryStats(despensa.map(aInsumo)),
+    stats: { ...D.pantryStats(pantry), porVencer: vencimientos.porVencer, vencidos: vencimientos.vencidos },
     shop: D.shoppingProgress(shopList),
     balance: D.balanceSemanal(),
-    atencion: despensa.filter((p) => p.estado !== "ok").length,
+    atencion: vencimientos.total,
   };
 }
 export async function getDespensa() {
@@ -210,13 +214,27 @@ export async function getDespensa() {
   return { items, stats: D.pantryStats(items) };
 }
 
+export async function buscarInsumos(query) {
+  const texto = String(query || "").trim();
+  if (!texto) return [];
+  await enCuenta();
+  const resultado = await rf("/insumos?q=" + encodeURIComponent(texto));
+  if (Array.isArray(resultado)) return resultado;
+  if (Array.isArray(resultado && resultado.items)) return resultado.items;
+  if (Array.isArray(resultado && resultado.insumos)) return resultado.insumos;
+  return [];
+}
+
 // — Motor de disponibilidad (P3) —
 export async function getMotor() {
   await enCuenta();
-  const [recetas, favoritos] = await Promise.all([
+  const [disponibilidad, favoritos, completas] = await Promise.all([
     rf("/recetas/disponibilidad"),
     rf("/favoritos/ids").catch(() => []),
+    rf("/recetas").catch(() => []),
   ]);
+  const porId = new Map((completas || []).map((receta) => [String(receta.id), aReceta(receta)]));
+  const recetas = (disponibilidad || []).map((receta) => ({ ...porId.get(String(receta.id)), ...receta }));
   return { recetas, favoritos };
 }
 
@@ -227,8 +245,10 @@ export async function getRecetasPorDistrito(distrito) {
     rf("/recetas" + qs),
     rf("/recetas/disponibilidad").catch(() => []),
   ]);
-  const ids = new Set((lista || []).map((r) => r.id));
-  return disponibilidad.filter((d) => ids.has(d.id));
+  const porId = new Map((lista || []).map((receta) => [String(receta.id), aReceta(receta)]));
+  return (disponibilidad || [])
+    .filter((receta) => porId.has(String(receta.id)))
+    .map((receta) => ({ ...porId.get(String(receta.id)), ...receta }));
 }
 
 export async function getReceta(id) {
@@ -374,13 +394,17 @@ export async function getBalance() {
     return { ...D.balanceSemanal(), cocinadas: COCINADAS, sugerencias: SUGERENCIAS };
   }
   const [planes] = await Promise.all([rf("/planes")]);
-  const pct = Math.round((planes.length / 14) * 100);
+  const lunes = lunesDeIso(hoyIso());
+  const domingo = sumarDiasIso(lunes, 6);
+  const planesEstaSemana = (planes || []).filter((plan) => plan.fecha >= lunes && plan.fecha <= domingo);
+  const cantidad = planesEstaSemana.length;
+  const pct = Math.min(Math.round((cantidad / 21) * 100), 100);
   return {
     pct,
-    delta: planes.length ? "" : undefined,
-    texto: planes.length
-      ? `Llevas ${planes.length} comidas planificadas de las 14 de la semana.`
-      : "Tu semana aún no tiene platos: planifica el primero.",
+    delta: cantidad ? "" : undefined,
+    texto: cantidad < 21
+      ? `Llevas ${cantidad} comidas planificadas de las 21 de la semana.`
+      : `¡Tu semana está completa con ${cantidad} comidas!`,
     cocinadas: COCINADAS,
     sugerencias: SUGERENCIAS,
   };
@@ -450,15 +474,22 @@ export async function actualizarPerfil(cambios = {}) {
 }
 
 export async function cerrarSesion() {
-  const actual = await leerSesion();
+  let timeoutId;
   try {
+    const actual = await leerSesion();
     if (actual && actual.token) {
-      // Revoca el JWT en el servidor cuando la API está disponible.
-      await rf("/auth/logout", { method: "POST" });
+      // La salida local no espera más de 2 segundos al servidor.
+      await Promise.race([
+        rf("/auth/logout", { method: "POST" }),
+        new Promise((resolve) => {
+          timeoutId = setTimeout(resolve, 2000);
+        }),
+      ]);
     }
   } catch (_e) {
     // La salida local debe completarse aunque el dispositivo esté sin conexión.
   } finally {
+    if (timeoutId) clearTimeout(timeoutId);
     await borrarSesion();
   }
 }

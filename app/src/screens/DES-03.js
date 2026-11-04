@@ -8,24 +8,17 @@ import { focoVisible } from "../lib/a11y";
 
 const OPCIONES = [
   {
-    id: "boleta",
+    id: "foto",
     icon: "camera-outline",
-    title: "Escanear boleta",
-    sub: "Foto de la boleta del supermercado. Reconocemos productos, cantidades y precios.",
-    target: "DES-04",
-  },
-  {
-    id: "lista",
-    icon: "list-outline",
-    title: "Escanear lista de compras",
-    sub: "Foto de tu lista manuscrita o impresa. Reconocemos los productos.",
+    title: "Escanear o subir foto",
+    sub: "Toma una foto o elige una imagen de tu dispositivo.",
     target: "DES-04",
   },
   {
     id: "manual",
     icon: "create-outline",
-    title: "Agregar manualmente",
-    sub: "Escribe producto, cantidad y unidad. Ideal para mercado o bodega.",
+    title: "Escribir manualmente",
+    sub: "Agrega los insumos escribiendo sus datos.",
     target: "DES-06",
   },
 ];
@@ -41,9 +34,13 @@ export default function DES_03() {
       {OPCIONES.map((op) => (
         <Pressable
           key={op.id}
-          onPress={() => go(op.target)}
+          onPress={(event) => {
+            if (typeof event?.currentTarget?.blur === "function") event.currentTarget.blur();
+            go(op.target);
+          }}
           accessibilityRole="button"
           accessibilityLabel={op.title}
+          accessibilityState={{ disabled: false }}
           accessibilityHint={op.sub}
           style={(state) => [
             styles.card,
@@ -62,7 +59,6 @@ export default function DES_03() {
         </Pressable>
       ))}
 
-      <K.TextLine text="Consejo: si compras en el mercado, elige «Agregar manualmente»; si te dieron boleta, usa «Escanear boleta»." />
     </Screen>
   );
 }

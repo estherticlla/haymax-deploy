@@ -3,7 +3,7 @@ import { Tabs, router, usePathname } from "expo-router";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { colors, typography, shadows } from "../../tokens";
+import { colors, typography, shadows, layout } from "../../tokens";
 import { go, isAuthScreenPath } from "../../lib/nav";
 import { leerSesion } from "../../lib/sesion";
 import { focoVisible } from "../../lib/a11y";
@@ -13,6 +13,13 @@ const ICONS = {
   despensa: ["basket", "basket-outline"],
   planificar: ["calendar", "calendar-outline"],
   ajustes: ["settings", "settings-outline"],
+};
+
+const ROOT_SCREENS = {
+  index: "INI-01",
+  despensa: "DES-01",
+  planificar: "PLA-05",
+  ajustes: "AJU-01",
 };
 
 function tabForScreen(id) {
@@ -44,28 +51,31 @@ function TabBar({ state, descriptors, navigation }) {
         accessibilityState={{ selected: focused }}
         onPress={() => {
           const ev = navigation.emit({ type: "tabPress", target: route.key, canPreventDefault: true });
-          if (!focused && !ev.defaultPrevented) navigation.navigate(route.name);
+          if (ev.defaultPrevented) return;
+          const rootScreen = ROOT_SCREENS[route.name];
+          if (rootScreen) go(rootScreen);
         }}
       >
         <Ionicons name={focused ? onIcon : offIcon} size={20} color={focused ? colors.primary : colors.muted} />
-        <Text style={[styles.tabLabel, focused && styles.tabLabelOn]} numberOfLines={1}>
+        <Text style={[styles.tabLabel, focused && styles.tabLabelOn]}>
           {title}
         </Text>
       </Pressable>
     );
-    // La cámara ocupa el espacio central entre Despensa y Planificar.
+    // El acceso para agregar insumos ocupa el espacio central entre pestañas.
     if (route.name === "despensa") {
       nodes.push(
         <Pressable
           key="cam"
           style={(s) => [styles.camWrap, focoVisible(s)]}
-          onPress={() => go("DES-04")}
+          onPress={() => go("DES-03")}
           accessibilityRole="button"
-          accessibilityLabel="Tomar o subir imagen de insumos"
-          accessibilityHint="Abre la cámara para registrar una boleta o una lista de compras"
+          accessibilityLabel="Agregar insumos"
+          accessibilityState={{ disabled: false }}
+          accessibilityHint="Elige escanear, subir una foto o escribir los insumos"
         >
           <View style={styles.cam}>
-            <Ionicons name="camera" size={22} color={colors.white} />
+            <Ionicons name="add" size={22} color={colors.white} />
           </View>
         </Pressable>
       );
@@ -128,8 +138,8 @@ const styles = StyleSheet.create({
     borderTopColor: colors.border,
     paddingTop: 8,
   },
-  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2, paddingVertical: 2, minHeight: 48 },
-  tabLabel: { fontSize: typography.sizes.caption, color: colors.muted },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 2, paddingVertical: 2, minHeight: layout.tabMinHeight },
+  tabLabel: { flexShrink: 1, textAlign: "center", fontSize: typography.sizes.caption, color: colors.muted },
   tabLabelOn: { color: colors.primary, fontWeight: typography.weights.semibold },
   camWrap: { flex: 1, alignItems: "center", justifyContent: "flex-end" },
   cam: {

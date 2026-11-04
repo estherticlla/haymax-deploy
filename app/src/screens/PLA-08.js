@@ -20,8 +20,6 @@ export default function PLA_08({ fecha, comida = "almuerzo", nombre = "", porcio
         <Text style={styles.dia}>{fecha ? fechaLarga(fecha) : "—"}</Text>
       </Text>
       <K.TextLine text={`${comidaBonita} · ${nombre || "Platillo"} · ${porciones} porciones`} />
-      <K.Note text="Guardamos la fecha, la comida y las porciones en tu plan. Podrás cambiarlo cuando quieras." />
-
       <Button label="Volver al menú principal" full onPress={() => go("INI-01")} />
       <Button label="Ver mi plan de la semana" variant="outline" full onPress={() => go("PLA-09", { fecha })} />
     </Screen>

@@ -9,6 +9,8 @@ import { colors, spacing, typography } from "../tokens";
 import useApi from "../hooks/useApi";
 import { getDespensa } from "../lib/api";
 import { focoVisible } from "../lib/a11y";
+import { leerPreferencias, resumenVencimientos, diasRestantesVencimiento } from "../lib/preferencias";
+import { textoVencimiento } from "../lib/fechas";
 
 const NOMBRE = "Mi despensa";
 const CATS = ["Todos", "Verduras", "Lácteos", "Secos", "Carnes"];
@@ -36,7 +38,16 @@ function cantidadTexto(p) {
 export default function DES_01() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("Todos");
-  const { data, loading, error, recargar } = useApi(getDespensa);
+  const { data, loading, error, recargar } = useApi(async () => {
+    const [despensa, preferencias] = await Promise.all([getDespensa(), leerPreferencias()]);
+    const vencimientos = resumenVencimientos(despensa.items, preferencias.diasAvisoVencimiento);
+    return {
+      ...despensa,
+      alertas: vencimientos.total,
+      diasAviso: Number(preferencias.diasAvisoVencimiento) === 1 ? 1 : 2,
+      stats: { ...despensa.stats, porVencer: vencimientos.porVencer, vencidos: vencimientos.vencidos },
+    };
+  });
 
   if (loading) {
     return (
@@ -53,17 +64,22 @@ export default function DES_01() {
     );
   }
 
-  const { items, stats } = data;
+const { items } = data;
   const lista = items.filter((p) => {
     const okCat = cat === "Todos" || p.categoria === cat;
     const okQ = p.nombre.toLowerCase().includes(q.trim().toLowerCase());
     return okCat && okQ;
   });
 
-  const alertas = stats.porVencer + stats.vencidos;
+  const alertas = data.alertas;
+  const plazoAviso = data.diasAviso === 1 ? "dentro del próximo día" : `dentro de los próximos ${data.diasAviso} días`;
+  const textoAlertas = alertas === 1
+    ? `1 insumo requiere atención: vence ${plazoAviso} o ya venció. Toca para revisar.`
+    : `${alertas} insumos requieren atención: vencen ${plazoAviso} o ya vencieron. Toca para revisar.`;
 
   return (
-    <Screen id="DES-01" name={NOMBRE}>      
+    <Screen id="DES-01" name={NOMBRE}>
+      <Text style={styles.pageTitle} accessibilityRole="header">Mi despensa</Text>
     <K.InputField
         label="Buscar insumo"
         placeholder="Ej. pollo, tomate…"
@@ -91,6 +107,7 @@ export default function DES_01() {
           <InsumoRow
             key={p.id}
             insumo={p}
+            diasAviso={data.diasAviso}
             onPress={() => go("DES-02", { insumo: p.id })}
           />
         ))
@@ -98,9 +115,7 @@ export default function DES_01() {
 
       <K.Note
         text={
-          alertas > 0
-            ? `${alertas} insumo${alertas === 1 ? "" : "s"} vence${alertas === 1 ? "" : "n"} en menos de 3 días. Toca para revisar.`
-            : "Ningún insumo está por vencer."
+          alertas > 0 ? textoAlertas : `Ningún insumo vence en los próximos ${data.diasAviso} ${data.diasAviso === 1 ? "día" : "días"}.`
         }
         onPress={alertas > 0 ? () => go("PRE-03") : undefined}
         alerta={alertas > 0}
@@ -114,14 +129,19 @@ export default function DES_01() {
   );
 }
 
-function InsumoRow({ insumo, onPress }) {
-  const est = ESTADO[insumo.estado] || ESTADO.ok;
+function InsumoRow({ insumo, diasAviso, onPress }) {
+  const dias = diasRestantesVencimiento(insumo);
+  const vencimiento = dias == null ? null : textoVencimiento(dias);
+  const est = dias == null
+    ? insumo.estado === "vencido" ? ESTADO.vencido : ESTADO.ok
+    : dias < 0 ? ESTADO.vencido : dias <= diasAviso ? ESTADO["por-vencer"] : ESTADO.ok;
   const valor = cantidadTexto(insumo);
   return (
     <Pressable
       onPress={onPress}
       accessibilityRole="button"
       accessibilityLabel={`${insumo.nombre}, ${valor}${est.label ? `, ${est.label}` : ""}`}
+      accessibilityState={{ disabled: false }}
       accessibilityHint="Abre los detalles para editar"
       style={(state) => [
         styles.row,
@@ -137,10 +157,11 @@ function InsumoRow({ insumo, onPress }) {
         />
       </View>
       <View style={styles.main}>
-        <Text style={styles.name} numberOfLines={2}>
+        <Text style={styles.name}>
           {insumo.nombre}
         </Text>
         <Text style={styles.valor}>{valor}</Text>
+        {vencimiento ? <Text style={styles.vencimiento}>{vencimiento}</Text> : null}
       </View>
       {est.label ? (
         <View style={[styles.badge, { backgroundColor: est.bg }]}>
@@ -153,6 +174,11 @@ function InsumoRow({ insumo, onPress }) {
 }
 
 const styles = StyleSheet.create({
+  pageTitle: {
+    fontSize: typography.sizes.title,
+    fontWeight: typography.weights.bold,
+    color: colors.text,
+  },
   hint: {
     fontSize: typography.sizes.small,
     color: colors.muted,
@@ -186,6 +212,10 @@ const styles = StyleSheet.create({
   },
   valor: {
     fontSize: 13,
+    color: colors.sub,
+  },
+  vencimiento: {
+    fontSize: typography.sizes.caption,
     color: colors.sub,
   },
   badge: {

@@ -79,6 +79,7 @@ export default function DistrictSelect({
           <TextInput
             style={styles.searchInput}
             placeholder="Buscar distrito…"
+            accessibilityLabel="Buscar distrito"
             placeholderTextColor={colors.muted}
             value={busqueda}
             onChangeText={setBusqueda}
@@ -90,6 +91,7 @@ export default function DistrictSelect({
               onPress={limpiar}
               accessibilityRole="button"
               accessibilityLabel="Quitar distrito"
+              accessibilityState={{ disabled: false }}
               style={(state) => [styles.clearRow, state.pressed && styles.pressed, focoVisible(state)]}
             >
               <Icon name="close-circle-outline" size={16} color={colors.red} />
@@ -144,7 +146,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     minHeight: 46,
@@ -155,7 +157,7 @@ const styles = StyleSheet.create({
   dropdown: {
     backgroundColor: colors.white,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.md,
     padding: spacing.sm,
     marginTop: 6,
@@ -163,7 +165,7 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.sm,
     paddingHorizontal: 12,
     minHeight: 40,

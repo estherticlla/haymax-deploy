@@ -184,8 +184,9 @@ function PerfilForm({ perfil }) {
       <Button label="Volver a ajustes" variant="outline" full onPress={() => go("AJU-01")} />
 
       <Modal visible={photoMenuOpen} transparent animationType="fade" onRequestClose={closePhotoMenu}>
-        <Pressable style={styles.backdrop} onPress={closePhotoMenu}>
-          <Pressable style={styles.sheet} onPress={() => {}}>
+        <View style={styles.backdrop}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={closePhotoMenu} accessibilityRole="button" accessibilityLabel="Cerrar menú de foto" accessibilityState={{ disabled: false }} />
+          <View style={styles.sheet}>
             <Text style={styles.sheetTitle}>Foto de perfil</Text>
             {Platform.OS !== "web" ? (
               <Pressable
@@ -193,6 +194,7 @@ function PerfilForm({ perfil }) {
                 style={(state) => [styles.sheetItem, state.pressed && { opacity: 0.6 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Tomar foto con la cámara"
+                accessibilityState={{ disabled: false }}
               >
                 <Icon name="camera-outline" size={22} color={colors.primary} />
                 <Text style={styles.sheetItemText}>Tomar foto</Text>
@@ -203,6 +205,7 @@ function PerfilForm({ perfil }) {
               style={(state) => [styles.sheetItem, state.pressed && { opacity: 0.6 }]}
               accessibilityRole="button"
               accessibilityLabel="Elegir foto de la galería"
+              accessibilityState={{ disabled: false }}
             >
               <Icon name="images-outline" size={22} color={colors.primary} />
               <Text style={styles.sheetItemText}>Elegir de galería</Text>
@@ -213,6 +216,7 @@ function PerfilForm({ perfil }) {
                 style={(state) => [styles.sheetItem, state.pressed && { opacity: 0.6 }]}
                 accessibilityRole="button"
                 accessibilityLabel="Quitar foto"
+                accessibilityState={{ disabled: false }}
               >
                 <Icon name="trash-outline" size={22} color={colors.red} />
                 <Text style={[styles.sheetItemText, { color: colors.red }]}>Quitar foto</Text>
@@ -222,11 +226,13 @@ function PerfilForm({ perfil }) {
               onPress={closePhotoMenu}
               style={(state) => [styles.sheetCancel, state.pressed && { opacity: 0.6 }]}
               accessibilityRole="button"
+              accessibilityLabel="Cancelar"
+              accessibilityState={{ disabled: false }}
             >
               <Text style={styles.sheetCancelText}>Cancelar</Text>
             </Pressable>
-          </Pressable>
-        </Pressable>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -246,7 +252,7 @@ const styles = StyleSheet.create({
     gap: 8,
     backgroundColor: colors.field,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderStrong,
     borderRadius: radius.md,
     paddingHorizontal: 14,
     minHeight: 46,
