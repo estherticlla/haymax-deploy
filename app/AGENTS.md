@@ -39,3 +39,37 @@ Docs: https://docs.expo.dev/eas/index.md
 - If `ios/` and `android/` directories do not exist, they are generated (Continuous Native Generation). Never create or edit them by hand — configure native behavior in `app.json` and config plugins.
 - Expo Go only includes its bundled native modules. After adding a library with native code, the app needs a development build: `npx expo run:ios|android` locally, or `eas build --profile development`.
 - Prefer recommended Expo modules over third-party libraries, and check your available skills before adding dependencies. Docs: https://docs.expo.dev/versions/latest/index.md
+
+
+# Reglas para agentes — Haymax
+
+## Alcance
+Solo trabajas en `app/` (Expo / React Native). Textos en español (es-PE), tono cotidiano, soles como "S/".
+
+## ZONA PROHIBIDA (no editar, formatear ni mover)
+- `api/**` completo.
+- `app/src/lib/api.js`: `analizarImagenDespensa`, `getEscaneoPendiente`, `confirmarEscaneo` y todo lo que llame a `/ocr`.
+- `app/src/screens/DES-04.js` y `DES-05.js`: no cambies lógica ni handlers.
+- Archivos `.env*`: nunca los leas, crees ni imprimas. Nunca toques `GEMINI_API_KEY`.
+- No ejecutes ni edites `app/tools/_gen_screens.js`, `tools/`, `prototipo/` ni `documentos/`.
+
+## Expo
+Tu memoria sobre Expo puede estar desactualizada. Lee la versión de `expo` en `app/package.json` y consulta docs.expo.dev para esa versión. Instala dependencias solo con `npx expo install <paquete>` y avísame antes.
+
+## Estilo
+- Todo valor visual sale de `src/tokens/index.js` (sin colores ni medidas literales).
+- Usa las primitivas de `src/components/kit.js` y `Button.js`; no dupliques componentes.
+- Objetivos táctiles ≥ 44 px (`MIN_TARGET` en `lib/a11y.js`).
+- Usa `focoVisible`, `anunciar` y `etiqueta` de `lib/a11y.js`.
+
+## Accesibilidad (WCAG 2.2 AA)
+- Todo control tiene role, label (que contenga el texto visible) y state.
+- El color nunca es el único canal. Contraste: texto ≥ 4,5:1, componentes de UI ≥ 3:1.
+- Sin alturas fijas en texto (usa `minHeight`). Sin `numberOfLines={1}` en información esencial. Debe funcionar a 200 % de fuente.
+- Los errores se muestran con texto claro y se anuncian a lectores de pantalla.
+
+## Proceso
+- Muestra un plan corto antes de editar. Un tema por tarea.
+- Al terminar, desde `app/`: `npx expo lint`, `npx tsc --noEmit`, `npm run test:domain`.
+- `git diff --stat -- api app/src/lib/api.js` debe salir vacío.
+- No hagas commit ni push.
