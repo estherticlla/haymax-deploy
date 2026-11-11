@@ -70,12 +70,12 @@ export default function PRE_01({ receta }) {
         await actualizarPlan(plan.id, { completado: true });
       }
       go("PRE-02", { receta: r.id, porciones: String(porc) });
-    } catch (e) {
-      setAviso(
-        hecho
-          ? "Se descontaron los insumos, pero no se pudo marcar el plato como preparado. Reintenta: no se descontará dos veces."
-          : (e && e.message) || "No se pudo descontar de la despensa."
-      );
+    } catch (_e) {
+      const mensaje = hecho
+        ? "Se descontaron los ingredientes, pero no se pudo marcar el plato como preparado. Inténtalo de nuevo; no se descontarán dos veces."
+        : "No pudimos actualizar tu despensa. Inténtalo de nuevo.";
+      setAviso(mensaje);
+      anunciar(mensaje);
       setGuardo(false);
     }
   };

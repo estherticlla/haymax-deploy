@@ -40,6 +40,7 @@ export const layout = {
   padding: 16,
   contentTop: 104,
   tabBarY: 748,
+  controlMinSize: 48,
   rowMinHeight: 48,
   chipMinHeight: 32,
   pillMinHeight: 26,

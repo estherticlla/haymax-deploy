@@ -21,7 +21,7 @@ function Tappable({ onPress, label, role = "button", state, hint, children }) {
       accessibilityLabel={label}
       accessibilityHint={hint}
       accessibilityState={state || { disabled: !onPress }}
-      style={(s) => [s.pressed && styles.pressed, focoVisible(s)]}
+      style={(s) => [styles.touchTarget, s.pressed && styles.pressed, focoVisible(s)]}
     >
       {children}
     </Pressable>
@@ -218,7 +218,7 @@ export function Chips({
           : null;
         const isActive = !ok && !tone && label === active;
         const chip = (
-          <View style={[styles.chip, minTarget && styles.chipTarget, ok && styles.chipOk, toneStyle, isActive && styles.chipActive]}>
+          <View style={[styles.chip, (minTarget || onPressItem) && styles.chipTarget, ok && styles.chipOk, toneStyle, isActive && styles.chipActive]}>
             <Text style={[styles.chipText, ok && styles.chipTextOk, toneText, isActive && styles.chipTextActive]}>
               {label}
             </Text>
@@ -753,7 +753,7 @@ const styles = StyleSheet.create({
 
   secRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm, marginBottom: 6 },
   secTitle: { fontSize: typography.sizes.subtitle, fontWeight: typography.weights.bold, color: colors.text, flex: 1 },
-  secActionBtn: { minHeight: 44, justifyContent: "center" },
+  secActionBtn: { minHeight: MIN_TARGET, justifyContent: "center" },
   secAction: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
 
   textLine: { fontSize: typography.sizes.body, color: colors.sub, lineHeight: 19, marginBottom: 8 },
@@ -789,7 +789,8 @@ const styles = StyleSheet.create({
 
   chipsRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm, marginBottom: 4 },
   chip: { minHeight: layout.chipMinHeight, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: spacing.xs, alignItems: "center", justifyContent: "center", backgroundColor: colors.white, borderWidth: 1, borderColor: colors.borderStrong },
-  chipTarget: { minHeight: MIN_TARGET, paddingVertical: spacing.sm },
+  touchTarget: { minHeight: MIN_TARGET, minWidth: MIN_TARGET },
+  chipTarget: { minHeight: MIN_TARGET, minWidth: MIN_TARGET, paddingVertical: spacing.sm },
   chipActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   chipOk: { backgroundColor: colors.greenBg, borderColor: colors.greenBg },
   chipText: { fontSize: typography.sizes.small, color: colors.text },
@@ -843,7 +844,7 @@ const styles = StyleSheet.create({
   radioSub: { fontSize: 11.5, color: colors.sub, marginTop: 4 },
 
   inputLabel: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.text, marginBottom: 6 },
-  input: { minHeight: 46, borderRadius: radius.md, backgroundColor: colors.field, borderWidth: 1, borderColor: colors.borderStrong, justifyContent: "center", paddingHorizontal: 14 },
+  input: { minHeight: MIN_TARGET, borderRadius: radius.md, backgroundColor: colors.field, borderWidth: 1, borderColor: colors.borderStrong, justifyContent: "center", paddingHorizontal: 14 },
   inputText: { fontSize: typography.sizes.body, color: colors.muted },
   inputLive: { fontSize: typography.sizes.body, color: colors.text, paddingVertical: 0 },
 
@@ -865,7 +866,7 @@ const styles = StyleSheet.create({
   progTrack: { height: 8, borderRadius: 4, backgroundColor: colors.track, marginTop: 8, overflow: "hidden" },
   progFill: { height: 8, borderRadius: 4, backgroundColor: colors.green },
 
-  linkBtn: { minHeight: 44, justifyContent: "center" },
+  linkBtn: { minHeight: MIN_TARGET, justifyContent: "center" },
   link: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary, paddingVertical: 4, marginBottom: 4 },
 
   photoCard: { backgroundColor: colors.white, borderRadius: radius.lg, overflow: "hidden", ...shadows.card },
@@ -887,7 +888,7 @@ const styles = StyleSheet.create({
   pillWarnText: { color: colors.amber },
 
   hero: { borderRadius: radius.lg, overflow: "hidden", marginBottom: 4 },
-  heart: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadows.card },
+  heart: { width: MIN_TARGET, height: MIN_TARGET, borderRadius: 19, backgroundColor: colors.white, alignItems: "center", justifyContent: "center", ...shadows.card },
   pill: { position: "absolute", borderRadius: radius.pill, paddingHorizontal: 12, height: 26, justifyContent: "center", backgroundColor: colors.white, flexDirection: "row", alignItems: "center", gap: 4 },
   pillTime: { top: 12, left: 12 },
   pillTimeText: { fontSize: typography.sizes.caption, color: colors.text },
@@ -906,7 +907,7 @@ const styles = StyleSheet.create({
   stepperQty: { fontSize: 15, fontWeight: typography.weights.bold, color: colors.primary },
   stepperBtns: { fontSize: 15, fontWeight: typography.weights.bold, color: colors.primary },
   stepperBtnsRow: { flexDirection: "row" },
-  stepperBtn: { minWidth: 44, minHeight: 44, alignItems: "center", justifyContent: "center" },
+  stepperBtn: { minWidth: MIN_TARGET, minHeight: MIN_TARGET, alignItems: "center", justifyContent: "center" },
 
   camera: { height: 340, borderRadius: radius.lg, backgroundColor: colors.dark, padding: 16, gap: spacing.md },
   cameraGuide: { flex: 1, borderRadius: radius.md, borderWidth: 2, borderStyle: "dashed", borderColor: colors.white },

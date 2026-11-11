@@ -5,6 +5,7 @@ import Button from "../components/Button";
 import * as K from "../components/kit";
 import { go } from "../lib/nav";
 import { colors } from "../tokens";
+import { anunciar } from "../lib/a11y";
 import useApi from "../hooks/useApi";
 import { getRecetaDetalle, agregarFavorito, quitarFavorito } from "../lib/api";
 import { hoyIso } from "../lib/fechas";
@@ -15,6 +16,7 @@ const NOMBRE = "Detalle de receta";
 export default function REC_02({ receta }) {
   const { data, loading, error, recargar } = useApi(() => getRecetaDetalle(receta));
   const [favLocal, setFavLocal] = useState(null);
+  const [errorFavorito, setErrorFavorito] = useState("");
 
   if (loading) {
     return (
@@ -54,12 +56,16 @@ export default function REC_02({ receta }) {
 
   const alternarFavorito = async () => {
     const nuevo = !favorito;
+    setErrorFavorito("");
     setFavLocal(nuevo);
     try {
       if (nuevo) await agregarFavorito(r.id);
       else await quitarFavorito(r.id);
     } catch (_e) {
       setFavLocal(!nuevo);
+      const mensaje = "No pudimos actualizar tus favoritos. Inténtalo de nuevo.";
+      setErrorFavorito(mensaje);
+      anunciar(mensaje);
     }
   };
 
@@ -75,6 +81,7 @@ export default function REC_02({ receta }) {
         <K.Heart activo={favorito} onPress={alternarFavorito} style={styles.heart} />
       </View>
 
+      {errorFavorito ? <K.TextLine text={errorFavorito} /> : null}
       <K.SectionTitle title="Datos" />
       <View style={styles.rows}>
         <K.Row label="Porciones" value={String(r.porciones)} icon="👥" />
@@ -114,7 +121,7 @@ export default function REC_02({ receta }) {
 
       <K.Card
         title="Balance nutricional"
-        sub={`${r.calorias} kcal por porción · rinde ${r.porciones} porciones · ${faltantes.length === 0 ? "todo disponible" : `faltan ${faltantes.length} insumos`}`}
+        sub={`${r.calorias > 0 ? `${r.calorias} kcal por porción` : "Información nutricional no disponible"} · rinde ${r.porciones} porciones · ${faltantes.length === 0 ? "todo disponible" : `faltan ${faltantes.length} insumos`}`}
       />
 
       <Button label="Planificar este plato" full onPress={() => go("PLA-07", { receta: r.id, fecha: hoyIso(), comida: "almuerzo" })} />

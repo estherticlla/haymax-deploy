@@ -4,7 +4,7 @@ import Screen from "../components/Screen";
 import Button from "../components/Button";
 import * as K from "../components/kit";
 import { go } from "../lib/nav";
-import { colors, spacing, typography } from "../tokens";
+import { colors, spacing, typography, layout } from "../tokens";
 import { confirmarEscaneo, getEscaneoPendiente } from "../lib/api";
 
 export default function DES_05() {
@@ -57,7 +57,7 @@ export default function DES_05() {
             <View key={item.id} style={styles.itemCard}>
               <View style={styles.itemHeader}>
                 <Text style={styles.itemTitle}>Producto {index + 1}</Text>
-                <Pressable onPress={() => quitar(item.id)} accessibilityRole="button" accessibilityLabel={`Quitar ${item.nombre || `producto ${index + 1}`}`}>
+                <Pressable style={styles.removeButton} onPress={() => quitar(item.id)} accessibilityRole="button" accessibilityLabel={`Quitar ${item.nombre || `producto ${index + 1}`}`}>
                   <Text style={styles.remove}>Quitar</Text>
                 </Pressable>
               </View>
@@ -105,10 +105,11 @@ export default function DES_05() {
 const styles = StyleSheet.create({
   preview: { width: "100%", height: 180, borderRadius: 12, backgroundColor: colors.greyBg },
   itemCard: { gap: spacing.sm, borderRadius: 14, padding: spacing.md, backgroundColor: colors.white },
-  itemHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  itemHeader: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between" },
   itemTitle: { color: colors.text, fontSize: typography.sizes.label, fontWeight: typography.weights.semibold },
+  removeButton: { minWidth: layout.controlMinSize, minHeight: layout.controlMinSize, justifyContent: "center", alignItems: "center" },
   remove: { color: colors.red, fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, padding: 8 },
-  quantityRow: { flexDirection: "row", gap: spacing.sm },
-  quantity: { flex: 1 },
-  unit: { flex: 1 },
+  quantityRow: { flexDirection: "row", flexWrap: "wrap", gap: spacing.sm },
+  quantity: { flexGrow: 1, minWidth: layout.controlMinSize },
+  unit: { flexGrow: 1, minWidth: layout.controlMinSize },
 });

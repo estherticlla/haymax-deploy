@@ -1,10 +1,10 @@
 import { AccessibilityInfo } from "react-native";
-import { colors } from "../tokens";
+import { colors, layout } from "../tokens";
 
 // Utilidades de accesibilidad (WCAG 2.2) compartidas por todo el kit de UI.
 
 // 2.5.8 (AA, mín. 24 px) y 2.5.5 (AAA / guías Android e iOS, 44-48 px).
-export const MIN_TARGET = 44;
+export const MIN_TARGET = layout.controlMinSize;
 
 // 4.1.3 Mensajes de estado: anuncia un texto a lectores de pantalla sin mover el foco.
 export function anunciar(mensaje) {

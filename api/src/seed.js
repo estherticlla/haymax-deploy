@@ -3,6 +3,7 @@
 const bcrypt = require("bcryptjs");
 const { db } = require("./db");
 const { lunesDe, sumarDias } = require("./utils");
+const { cargarPlatosPeruanos } = require("./platos-peruanos");
 
 // — Catálogo de productos (ids fijos) —
 const productos = [
@@ -607,6 +608,7 @@ const planes = [
         tabla
       );
     }
+    await cargarPlatosPeruanos(tx, rosa.id);
     return { hogar, usuario: rosa.email };
   });
 }
