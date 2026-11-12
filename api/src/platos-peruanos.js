@@ -74,6 +74,8 @@ const categorias = {
   "Arveja partida": ["Menestras", "gr"], "Tarwi cocido": ["Menestras", "gr"], "Vinagre": ["Condimentos", "ml"]
 };
 
+const { diasVidaUtilPorProducto } = require("./vida-util");
+
 async function cargarPlatosPeruanos(tx, autorId) {
   for (const [codigo, titulo, porciones, minutos, precio, lista, pasos] of platos) {
     const id = `REC-PE-${codigo}`;
@@ -82,12 +84,27 @@ async function cargarPlatosPeruanos(tx, autorId) {
        VALUES (?, ?, ?, ?, ?, 'media', ?, ?, ?, TRUE) ON CONFLICT (id) DO NOTHING RETURNING id`,
       id, titulo, `Receta peruana de ${titulo.toLowerCase()}.`, porciones, minutos, precio, JSON.stringify(pasos.split('|')), autorId
     );
-    // Nunca alterar una receta que ya existe, incluso si fue editada por una persona.
-    if (!creado) continue;
     for (const [orden, entrada] of lista.split(';').entries()) {
       const [nombre, cantidad, unidad] = entrada.split('|');
-      const [categoria, unidadBase] = categorias[nombre] || ["Secos", unidad];
-      await tx.run("INSERT INTO catalogo_productos (nombre, categoria, unidad_medida_base) VALUES (?, ?, ?) ON CONFLICT (nombre) DO NOTHING", nombre, categoria, unidadBase);
+      const existente = await tx.get(
+        "SELECT categoria, unidad_medida_base FROM catalogo_productos WHERE nombre = ?",
+        nombre
+      );
+      const [categoria, unidadBase] = categorias[nombre] || [
+        existente ? existente.categoria : "Secos",
+        existente ? existente.unidad_medida_base : unidad,
+      ];
+      await tx.run(
+        `INSERT INTO catalogo_productos (nombre, categoria, unidad_medida_base, dias_vida_util)
+         VALUES (?, ?, ?, ?)
+         ON CONFLICT (nombre) DO UPDATE SET dias_vida_util = EXCLUDED.dias_vida_util`,
+        nombre,
+        categoria,
+        unidadBase,
+        diasVidaUtilPorProducto(categoria, nombre)
+      );
+      // Nunca alterar los ingredientes de una receta que ya existe.
+      if (!creado) continue;
       const producto = await tx.get("SELECT id FROM catalogo_productos WHERE nombre = ?", nombre);
       await tx.run("INSERT INTO receta_ingredientes (receta_id, producto_id, nombre, cantidad, unidad_medida, orden) VALUES (?, ?, ?, ?, ?, ?)", id, producto.id, nombre, Number(cantidad), unidad, orden);
     }

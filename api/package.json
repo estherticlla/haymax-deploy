@@ -8,6 +8,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "seed": "node src/seed.js",
+    "limpiar:despensa": "node src/limpiar-duplicados-despensa.js",
     "migrate:sqlite": "node src/migrate-sqlite.js"
   },
   "dependencies": {

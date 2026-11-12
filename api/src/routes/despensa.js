@@ -4,6 +4,8 @@ const { db, q, hogarDe } = require("../db");
 const { auth } = require("../middleware/auth");
 const { asyncHandler } = require("../middleware/asyncHandler");
 const { ESTADO_SQL, norm } = require("../utils");
+const { sumarCantidades } = require("../unidades");
+const { diasVidaUtilPorProducto } = require("../vida-util");
 
 const router = express.Router();
 router.use(auth);
@@ -103,32 +105,110 @@ router.post("/", asyncHandler(async (req, res) => {
   }
 
   const hogarId = await hogarDe(req.user.id);
-  const result = await db.transaction(async (tx) => {
+  let result;
+  try {
+    result = await db.transaction(async (tx) => {
+    // Serializa las altas del hogar para evitar duplicados por solicitudes simultáneas.
+    await tx.get("SELECT pg_advisory_xact_lock(?)", hogarId);
     // Evita crear duplicados si el nombre solo cambia en acentos o mayúsculas.
     const productos = await tx.all("SELECT id, nombre FROM catalogo_productos");
     const producto = productos.find((item) => norm(item.nombre) === norm(nombre));
     const pid = producto
       ? producto.id
       : (await tx.run(
-          "INSERT INTO catalogo_productos (nombre, categoria, unidad_medida_base) VALUES (?, ?, ?) RETURNING id",
+          `INSERT INTO catalogo_productos (nombre, categoria, unidad_medida_base, dias_vida_util)
+           VALUES (?, ?, ?, ?) RETURNING id`,
           nombre,
           p.categoria || "Otros",
-          unidad
+          unidad,
+          diasVidaUtilPorProducto(p.categoria || "Otros", nombre)
         )).row.id;
-    const r = await tx.run(
-      `INSERT INTO despensa (hogar_id, producto_id, nombre, cantidad, unidad_medida, fecha_vencimiento, ubicacion)
-       VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
-      hogarId,
-      pid,
-      nombre,
-      cantidad,
-      unidad,
-      fecha,
-      p.ubicacion == null ? "Despensa" : p.ubicacion.trim()
+    const nombreProducto = producto ? producto.nombre : nombre;
+    let fechaEfectiva = fecha;
+    if (fechaEfectiva == null) {
+      const estimada = await tx.get(
+        "SELECT CURRENT_DATE + dias_vida_util AS fecha_vencimiento FROM catalogo_productos WHERE id = ?",
+        pid
+      );
+      fechaEfectiva = estimada.fecha_vencimiento;
+    }
+    const filasHogar = await tx.all(
+      "SELECT id, producto_id, nombre, cantidad, unidad_medida, fecha_vencimiento, ubicacion FROM despensa WHERE hogar_id = ? ORDER BY id",
+      hogarId
     );
-    return tx.get(`${SELECT} AND d.id = ?`, hogarId, r.row.id);
-  });
-  return res.status(201).json(aInsumo(result));
+    const coincidentes = filasHogar.filter((item) =>
+      (item.producto_id != null && String(item.producto_id) === String(pid)) || norm(item.nombre) === norm(nombreProducto)
+    );
+    let idResultado;
+    const creado = coincidentes.length === 0;
+
+    if (coincidentes.length) {
+      let cantidades;
+      try {
+        cantidades = sumarCantidades([
+          ...coincidentes,
+          { cantidad, unidad_medida: unidad },
+        ]);
+      } catch (error) {
+        error.code = "UNIT_MISMATCH";
+        throw error;
+      }
+      const fechas = fecha != null
+        ? [fecha]
+        : [...coincidentes.map((item) => item.fecha_vencimiento), fechaEfectiva]
+            .filter(Boolean)
+            .sort();
+      const principal = coincidentes[0];
+      await tx.run(
+        `UPDATE despensa
+         SET producto_id = ?, nombre = ?, cantidad = ?, unidad_medida = ?, fecha_vencimiento = ?,
+             actualizado_en = CURRENT_TIMESTAMP
+         WHERE id = ? AND hogar_id = ?`,
+        pid,
+        nombreProducto,
+        cantidades.cantidad,
+        cantidades.unidad,
+        fechas[0] || null,
+        principal.id,
+        hogarId
+      );
+      for (const duplicado of coincidentes.slice(1)) {
+        await tx.run("DELETE FROM despensa WHERE id = ? AND hogar_id = ?", duplicado.id, hogarId);
+      }
+      idResultado = principal.id;
+    } else {
+      const r = await tx.run(
+        `INSERT INTO despensa (hogar_id, producto_id, nombre, cantidad, unidad_medida, fecha_vencimiento, ubicacion)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`,
+        hogarId,
+        pid,
+        nombreProducto,
+        cantidad,
+        unidad,
+        fechaEfectiva,
+        p.ubicacion == null ? "Despensa" : p.ubicacion.trim()
+      );
+      idResultado = r.row.id;
+    }
+    const compras = await tx.all("SELECT id, producto_id, nombre FROM compras WHERE hogar_id = ?", hogarId);
+    for (const compra of compras) {
+      if (
+        (compra.producto_id != null && String(compra.producto_id) === String(pid)) ||
+        norm(compra.nombre) === norm(nombreProducto)
+      ) {
+        await tx.run("DELETE FROM compras WHERE id = ? AND hogar_id = ?", compra.id, hogarId);
+      }
+    }
+    return {
+      insumo: await tx.get(`${SELECT} AND d.id = ?`, hogarId, idResultado),
+      creado,
+    };
+    });
+  } catch (error) {
+    if (error.code === "UNIT_MISMATCH") return res.status(400).json({ error: error.message });
+    throw error;
+  }
+  return res.status(result.creado ? 201 : 200).json(aInsumo(result.insumo));
 }));
 
 // PUT /api/despensa/:id — actualiza únicamente los campos enviados.

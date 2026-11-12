@@ -40,6 +40,13 @@ function unidadLocal(unidadBase) {
   return UNIDADES.includes(equivalente) && equivalente !== "Otra" ? equivalente : "Otra";
 }
 
+function fechaValida(valor) {
+  if (!valor) return true;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(valor)) return false;
+  const fecha = new Date(`${valor}T00:00:00.000Z`);
+  return Number.isFinite(fecha.getTime()) && fecha.toISOString().slice(0, 10) === valor;
+}
+
 export default function DES_06() {
   const [producto, setProducto] = useState("");
   const [productoCatalogo, setProductoCatalogo] = useState(null);
@@ -50,6 +57,8 @@ export default function DES_06() {
   const [unidad, setUnidad] = useState("pieza");
   const [otraUnidad, setOtraUnidad] = useState("");
   const [precio, setPrecio] = useState("");
+  const [fechaVencimiento, setFechaVencimiento] = useState("");
+  const [errorFecha, setErrorFecha] = useState("");
   const [unidadesAbiertas, setUnidadesAbiertas] = useState(false);
   const [carrito, setCarrito] = useState([]);
   const [guardando, setGuardando] = useState(false);
@@ -94,6 +103,8 @@ export default function DES_06() {
     setUnidad("pieza");
     setOtraUnidad("");
     setUnidadesAbiertas(false);
+    setFechaVencimiento("");
+    setErrorFecha("");
   };
 
   const seleccionarProducto = (insumo) => {
@@ -121,11 +132,21 @@ export default function DES_06() {
 
   const agregarAlCarrito = () => {
     if (!listo) return;
+    if (!fechaValida(fechaVencimiento.trim())) {
+      setErrorFecha("Escribe una fecha válida con formato AAAA-MM-DD.");
+      anunciar("Escribe una fecha válida con formato AAAA-MM-DD.");
+      return;
+    }
     const nombreLimpio = producto.trim();
     const cantidadConUnidad = `${cantidad.trim()} ${unidadElegida}`;
     setCarrito((actual) => [
       ...actual,
-      { id: `${Date.now()}-${actual.length}`, nombre: nombreLimpio, cantidad: cantidadConUnidad },
+      {
+        id: `${Date.now()}-${actual.length}`,
+        nombre: nombreLimpio,
+        cantidad: cantidadConUnidad,
+        fecha_vencimiento: fechaVencimiento.trim() || null,
+      },
     ]);
     anunciar(`${nombreLimpio}, ${cantidadConUnidad}, agregado a insumos por agregar`);
     setProducto("");
@@ -135,6 +156,8 @@ export default function DES_06() {
     setUnidad("pieza");
     setOtraUnidad("");
     setPrecio("");
+    setFechaVencimiento("");
+    setErrorFecha("");
     setUnidadesAbiertas(false);
     setErrorBusqueda("");
   };
@@ -149,7 +172,7 @@ export default function DES_06() {
     setGuardando(true);
     setErrorGuardar("");
     try {
-      const items = carrito.map(({ nombre, cantidad }) => ({ nombre, cantidad }));
+      const items = carrito.map(({ nombre, cantidad, fecha_vencimiento }) => ({ nombre, cantidad, fecha_vencimiento }));
       await confirmarAltaManual(items);
       go("DES-08");
     } catch (e) {
@@ -252,6 +275,24 @@ export default function DES_06() {
         ) : null}
 
         <K.InputField
+          label="Fecha de vencimiento (opcional)"
+          placeholder="AAAA-MM-DD"
+          value={fechaVencimiento}
+          onChangeText={(valor) => {
+            setFechaVencimiento(valor);
+            setErrorFecha("");
+          }}
+          accessibilityLabel="Fecha de vencimiento, opcional"
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        <Text style={styles.ayudaFecha} accessibilityLiveRegion="polite">
+          Si lo dejas en blanco, calcularemos la fecha según el producto.
+        </Text>
+        <Text style={styles.ayudaFecha}>La fecha del envase tiene prioridad sobre esta estimación.</Text>
+        {errorFecha ? <K.Note text={errorFecha} alerta /> : null}
+
+        <K.InputField
           label="Precio estimado (opcional)"
           placeholder="S/ 0.00"
           value={precio}
@@ -270,6 +311,9 @@ export default function DES_06() {
               <View style={styles.itemTexto}>
                 <Text style={styles.itemNombre}>{item.nombre}</Text>
                 <Text style={styles.itemCantidad}>{item.cantidad}</Text>
+                <Text style={styles.itemCantidad}>
+                  {item.fecha_vencimiento ? `Vence: ${item.fecha_vencimiento}` : "Fecha estimada automáticamente"}
+                </Text>
               </View>
               <Button
                 label="Quitar"
@@ -309,4 +353,5 @@ const styles = StyleSheet.create({
   itemCantidad: { fontSize: typography.sizes.small, color: colors.sub },
   subtitulo: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.text, marginBottom: spacing.xs },
   estadoBusqueda: { fontSize: typography.sizes.small, color: colors.sub, minHeight: MIN_TARGET },
+  ayudaFecha: { fontSize: typography.sizes.small, color: colors.sub },
 });

@@ -26,11 +26,12 @@ function aCompra(r) {
 // GET /api/compras
 router.get("/", asyncHandler(async (req, res) => {
   const hogarId = await hogarDe(req.user.id);
-  const rows = await q.all(
-    "SELECT * FROM compras WHERE hogar_id = ? ORDER BY seccion, comprado, nombre",
-    hogarId
-  );
-  res.json(rows.map(aCompra));
+  const [rows, despensa] = await Promise.all([
+    q.all("SELECT * FROM compras WHERE hogar_id = ? ORDER BY seccion, comprado, nombre", hogarId),
+    q.all("SELECT nombre FROM despensa WHERE hogar_id = ?", hogarId),
+  ]);
+  const enCasa = new Set(despensa.map((item) => norm(item.nombre)));
+  res.json(rows.filter((item) => !enCasa.has(norm(item.nombre))).map(aCompra));
 }));
 
 // POST /api/compras

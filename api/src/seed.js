@@ -4,6 +4,7 @@ const bcrypt = require("bcryptjs");
 const { db } = require("./db");
 const { lunesDe, sumarDias } = require("./utils");
 const { cargarPlatosPeruanos } = require("./platos-peruanos");
+const { diasVidaUtilPorProducto } = require("./vida-util");
 
 // — Catálogo de productos (ids fijos) —
 const productos = [
@@ -506,9 +507,14 @@ async function seed() {
     // 3) Catálogo
     for (const p of productos) {
       await tx.run(
-        `INSERT INTO catalogo_productos (id, nombre, categoria, unidad_medida_base)
-         VALUES (?, ?, ?, ?) ON CONFLICT DO NOTHING`,
-        p.id, p.nombre, p.categoria, p.unidad_medida_base
+        `INSERT INTO catalogo_productos (id, nombre, categoria, unidad_medida_base, dias_vida_util)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT (id) DO UPDATE SET dias_vida_util = EXCLUDED.dias_vida_util`,
+        p.id,
+        p.nombre,
+        p.categoria,
+        p.unidad_medida_base,
+        diasVidaUtilPorProducto(p.categoria, p.nombre)
       );
     }
 

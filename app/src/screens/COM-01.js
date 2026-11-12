@@ -1,16 +1,17 @@
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { useFocusEffect } from "expo-router";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import Screen from "../components/Screen";
 import Icon from "../components/Icon";
+import Button from "../components/Button";
 import * as K from "../components/kit";
 import { colors, spacing, typography } from "../tokens";
-import useApi from "../hooks/useApi";
 import { anunciar, focoVisible } from "../lib/a11y";
 import {
   getCompras,
-  setCompraListo,
+  getDespensa,
   generarListaCompras,
+  confirmarAltaManual,
 } from "../lib/api";
 
 const NOMBRE = "Ingredientes faltantes";
@@ -25,10 +26,52 @@ function valorDe(it) {
   return /\s+[a-zA-Z]/.test(cant) ? cant : `${cant} ${unidad}`;
 }
 
+function norm(texto) {
+  return String(texto == null ? "" : texto)
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+}
+
 export default function COM_01() {
-  const { data, loading, error, recargar } = useApi(getCompras);
-  const [ocupado, setOcupado] = useState(false);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [seleccionados, setSeleccionados] = useState(() => new Set());
+  const [procesando, setProcesando] = useState(false);
+  const procesandoRef = useRef(false);
+  const solicitudRef = useRef(0);
   const [aviso, setAviso] = useState("");
+  const [tipoAviso, setTipoAviso] = useState("RED");
+
+  const recargar = useCallback(async ({ silencioso = false } = {}) => {
+    const solicitud = ++solicitudRef.current;
+    if (!silencioso) {
+      setLoading(true);
+      setError(null);
+    }
+    try {
+      const [compras, despensa] = await Promise.all([getCompras(), getDespensa()]);
+      const nombresEnCasa = new Set(despensa.items.map((it) => norm(it.nombre)).filter(Boolean));
+      const items = compras.items.filter((it) => !nombresEnCasa.has(norm(it.nombre)));
+      const listos = items.filter((it) => it.listo).length;
+      const total = items.length;
+      const resultado = { ...compras, items, prog: { listos, total, pct: total ? listos / total : 0 } };
+      if (solicitud === solicitudRef.current) {
+        setData(resultado);
+        setSeleccionados(new Set());
+        setError(null);
+        setLoading(false);
+      }
+    } catch (e) {
+      if (solicitud === solicitudRef.current) {
+        setData(null);
+        setError(e);
+        setLoading(false);
+      }
+    }
+  }, []);
 
   useFocusEffect(
     useCallback(() => {
@@ -36,9 +79,9 @@ export default function COM_01() {
       const generar = async () => {
         try {
           await generarListaCompras();
-          if (activo) recargar({ silencioso: true });
+          if (activo) await recargar({ silencioso: true });
         } catch {
-          // La generación en segundo plano no debe interrumpir la vista.
+          if (activo) await recargar({ silencioso: true });
         }
       };
       generar();
@@ -63,22 +106,51 @@ export default function COM_01() {
     );
   }
 
-  const { items, prog } = data;
-
+  const { items, prog } = data || { items: [], prog: { listos: 0, total: 0, pct: 0 } };
   const conError = (e) => setAviso((e && e.message) || "Algo salió mal. Revisa tu conexión con la API.");
 
-  const toggle = async (it) => {
-    if (ocupado) return;
-    setOcupado(true);
+  const toggleSeleccion = (id) => {
+    if (procesandoRef.current) return;
+    setSeleccionados((actuales) => {
+      const siguientes = new Set(actuales);
+      if (siguientes.has(id)) siguientes.delete(id);
+      else siguientes.add(id);
+      return siguientes;
+    });
+    setAviso("");
+  };
+
+  const agregarSeleccionados = async () => {
+    if (procesandoRef.current || seleccionados.size === 0) return;
+    procesandoRef.current = true;
+    setProcesando(true);
+    const lote = items
+      .filter((it) => seleccionados.has(it.id))
+      .map((it) => ({
+        nombre: it.nombre,
+        cantidad: it.cantidad == null || it.cantidad === "" ? "1" : it.cantidad,
+        unidad_medida: it.unidad_medida || it.unidad || "und",
+      }));
     try {
-      await setCompraListo(it.id, !it.listo);
-      anunciar(it.listo ? `${it.nombre} sin marcar` : `${it.nombre} marcado como comprado`);
-      setAviso("");
-      recargar({ silencioso: true });
+      await confirmarAltaManual(lote);
+      setSeleccionados(new Set());
+      let errorGeneracion = null;
+      try {
+        await generarListaCompras();
+      } catch (e) {
+        errorGeneracion = e;
+      }
+      await recargar({ silencioso: true });
+      if (errorGeneracion) throw errorGeneracion;
+      setTipoAviso("GREEN");
+      setAviso("Insumos agregados a tu despensa");
+      anunciar("Insumos agregados a tu despensa");
     } catch (e) {
+      setTipoAviso("RED");
       conError(e);
     } finally {
-      setOcupado(false);
+      procesandoRef.current = false;
+      setProcesando(false);
     }
   };
 
@@ -103,43 +175,52 @@ export default function COM_01() {
               key={it.id}
               it={it}
               valor={valorDe(it)}
-              onToggle={() => toggle(it)}
-              disabled={ocupado}
+              onToggle={() => toggleSeleccion(it.id)}
+              disabled={procesando}
+              selected={seleccionados.has(it.id)}
             />
           ))}
         </View>
       )}
-      {aviso ? <K.Banner title={aviso} tone="RED" /> : null}
+      {seleccionados.size > 0 ? (
+        <Button
+          label={`Agregar (${seleccionados.size}) a mi despensa`}
+          onPress={agregarSeleccionados}
+          loading={procesando}
+          disabled={procesando}
+          full
+        />
+      ) : null}
+      {aviso ? <K.Banner title={aviso} tone={tipoAviso} /> : null}
     </Screen>
   );
 }
 
-// Fila de ítem: checkbox explícito a la izquierda (toca para marcar/desmarcar)
-// + ícono de basura a la derecha (toca para eliminar de la lista).
-function ItemRow({ it, valor, onToggle, disabled }) {
-  const done = !!it.listo;
+// Fila de ítem: el checkbox agrega el ingrediente a la despensa.
+function ItemRow({ it, valor, onToggle, disabled, selected }) {
   return (
     <Pressable
       onPress={onToggle}
       disabled={disabled}
       accessibilityRole="checkbox"
-      accessibilityState={{ checked: done, disabled }}
+      accessibilityState={{ checked: selected, disabled }}
       accessibilityLabel={`${it.nombre}, ${valor}`}
-      accessibilityHint={done ? "Toca para desmarcar" : "Toca para marcar como comprado"}
+      accessibilityHint={selected ? "Seleccionado para agregar a tu despensa" : "Toca para seleccionar"}
       style={(state) => [
         styles.itemRow,
+        selected && styles.itemRowSelected,
         state.pressed && styles.pressed,
         focoVisible(state),
       ]}
     >
-      <View style={[styles.checkbox, done && styles.checkboxDone]}>
-        {done ? <Icon name="checkmark" size={14} color={colors.white} /> : null}
+      <View style={[styles.checkbox, selected && styles.checkboxDone]}>
+        {selected ? <Icon name="checkmark" size={14} color={colors.white} /> : null}
       </View>
       <View style={styles.itemMain}>
-        <Text style={[styles.itemName, done && styles.itemNameDone]}>
+        <Text style={styles.itemName}>
           {it.nombre}
         </Text>
-        <Text style={[styles.itemValor, done && styles.itemValorDone]}>
+        <Text style={styles.itemValor}>
           {valor}
         </Text>
       </View>
@@ -165,6 +246,9 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
     backgroundColor: colors.white,
   },
+  itemRowSelected: {
+    backgroundColor: colors.greenBg,
+  },
   pressed: { opacity: 0.6 },
   checkbox: {
     width: 26,
@@ -185,16 +269,8 @@ const styles = StyleSheet.create({
     color: colors.text,
     fontWeight: typography.weights.medium,
   },
-  itemNameDone: {
-    color: colors.muted,
-    textDecorationLine: "line-through",
-  },
   itemValor: {
     fontSize: 13,
     color: colors.sub,
-  },
-  itemValorDone: {
-    color: colors.muted,
-    textDecorationLine: "line-through",
   },
 });
