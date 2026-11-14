@@ -226,10 +226,11 @@ export async function buscarInsumos(query) {
 }
 
 // — Motor de disponibilidad (P3) —
-export async function getMotor() {
+export async function getMotor(comida) {
   await enCuenta();
+  const queryComida = comida ? `?comida=${encodeURIComponent(comida)}` : "";
   const [disponibilidad, favoritos, completas] = await Promise.all([
-    rf("/recetas/disponibilidad"),
+    rf("/recetas/disponibilidad" + queryComida),
     rf("/favoritos/ids").catch(() => []),
     rf("/recetas").catch(() => []),
   ]);

@@ -18,7 +18,7 @@ const ICONS = {
 const ROOT_SCREENS = {
   index: "INI-01",
   despensa: "DES-01",
-  planificar: "PLA-05",
+  planificar: "PLA-09",
   ajustes: "AJU-01",
 };
 

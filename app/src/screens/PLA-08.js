@@ -21,7 +21,7 @@ export default function PLA_08({ fecha, comida = "almuerzo", nombre = "", porcio
       </Text>
       <K.TextLine text={`${comidaBonita} · ${nombre || "Platillo"} · ${porciones} porciones`} />
       <Button label="Volver al menú principal" full onPress={() => go("INI-01")} />
-      <Button label="Ver mi plan de la semana" variant="outline" full onPress={() => go("PLA-09", { fecha })} />
+      <Button label="Volver al plan" variant="outline" full onPress={() => go("PLA-09", { fecha, comida })} />
     </Screen>
   );
 }

@@ -116,7 +116,7 @@ export default function PRE_01({ receta }) {
       <K.Note text="¿Usaste otra cantidad o un ingrediente extra? Podrás ajustarlo en el siguiente paso." />
 
       <Button label={etiquetaBoton} full loading={guardo} onPress={confirmar} />
-      <K.LinkText label="Omitir por ahora" align="CENTER" onPress={() => go("PLA-05")} />
+      <K.LinkText label="Omitir por ahora" align="CENTER" onPress={() => go("PLA-09")} />
       {aviso ? <K.Banner title={aviso} tone="RED" /> : null}
     </Screen>
   );

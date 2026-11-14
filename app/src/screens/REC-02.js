@@ -13,7 +13,7 @@ import { norm, precioPorPorcion, ahorroPorPorcion, soles, dificultadTexto } from
 
 const NOMBRE = "Detalle de receta";
 
-export default function REC_02({ receta }) {
+export default function REC_02({ receta, fecha, comida, planId, yaPlanificado }) {
   const { data, loading, error, recargar } = useApi(() => getRecetaDetalle(receta));
   const [favLocal, setFavLocal] = useState(null);
   const [errorFavorito, setErrorFavorito] = useState("");
@@ -34,10 +34,12 @@ export default function REC_02({ receta }) {
   }
 
   const r = data.receta;
+  const estaPlanificado = yaPlanificado === true || yaPlanificado === "true" || !!planId;
   const favorito = favLocal == null ? !!r.esFavorito : favLocal;
   const faltantes = (data.disponibilidad && data.disponibilidad.faltantes) || [];
   const faltaIngrediente = (nombre) => faltantes.some((f) => norm(f).includes(norm(nombre)));
   const ahorro = ahorroPorPorcion(r);
+  const pasos = Array.isArray(r.pasos) ? r.pasos : [];
 
   const ingredientes =
     r.ingredientes_detalle && r.ingredientes_detalle.length
@@ -115,16 +117,36 @@ export default function REC_02({ receta }) {
         <K.LinkText
           label="Agregar faltantes a mi lista de compras"
           align="CENTER"
-          onPress={() => go("COM-01")}
+          onPress={() => go("PLA-09", { fecha, comida })}
         />
       ) : null}
+
+      <K.SectionTitle title="Preparación" />
+      {pasos.length > 0 ? (
+        pasos.map((paso, indice) => <K.TextLine key={`${indice}-${paso}`} text={`${indice + 1}. ${paso}`} />)
+      ) : (
+        <K.TextLine text="Esta receta no tiene pasos de preparación disponibles." />
+      )}
 
       <K.Card
         title="Balance nutricional"
         sub={`${r.calorias > 0 ? `${r.calorias} kcal por porción` : "Información nutricional no disponible"} · rinde ${r.porciones} porciones · ${faltantes.length === 0 ? "todo disponible" : `faltan ${faltantes.length} insumos`}`}
       />
 
-      <Button label="Planificar este plato" full onPress={() => go("PLA-07", { receta: r.id, fecha: hoyIso(), comida: "almuerzo" })} />
+      <Button
+        label={estaPlanificado ? planId ? "Cambiar porciones" : "Ya está en tu plan" : "Planificar este plato"}
+        full
+        disabled={estaPlanificado && !planId}
+        onPress={() => {
+          if (estaPlanificado && !planId) return;
+          go("PLA-07", {
+            receta: r.id,
+            fecha: fecha || hoyIso(),
+            comida: comida || "almuerzo",
+            planId,
+          });
+        }}
+      />
       <Button label="Cocinar ahora" variant="outline" full onPress={() => go("PRE-01", { receta: r.id })} />
     </Screen>
   );

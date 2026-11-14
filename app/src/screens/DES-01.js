@@ -13,11 +13,10 @@ import { leerPreferencias, resumenVencimientos, diasRestantesVencimiento } from 
 import { textoVencimiento } from "../lib/fechas";
 
 const NOMBRE = "Mi despensa";
-const CATS = ["Todos", "Verduras", "Lácteos", "Secos", "Carnes"];
+const CATS = ["Todos", "Verduras", "Lácteos", "Carnes"];
 const CAT_ICON = {
   Verduras: "leaf-outline",
   Lácteos: "water-outline",
-  Secos: "cube-outline",
   Carnes: "restaurant-outline",
 };
 

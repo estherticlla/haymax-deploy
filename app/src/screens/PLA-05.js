@@ -123,7 +123,7 @@ export default function PLA_05() {
                 return (
                   <Pressable
                     key={celda.iso}
-                    onPress={deshabilitada ? undefined : () => go(completo ? "PLA-09" : "PLA-06", { fecha: celda.iso })}
+                    onPress={deshabilitada ? undefined : () => go("PLA-09", { fecha: celda.iso })}
                     disabled={deshabilitada}
                     accessibilityRole="button"
                     accessibilityLabel={etiquetaDia}

@@ -1,13 +1,13 @@
 import { router } from "expo-router";
 
 // Solo estas cuatro raíces aparecen como pestañas reales.
-export const TAB_ROOTS = ["INI-01", "DES-01", "PLA-05", "AJU-01"];
+export const TAB_ROOTS = ["INI-01", "DES-01", "PLA-09", "AJU-01"];
 export const AUTH_SCREEN_IDS = ["ACC-01", "ACC-02", "ACC-03"];
 
 export const TAB_ROUTES = {
   "INI-01": "/(tabs)",
   "DES-01": "/(tabs)/despensa",
-  "PLA-05": "/(tabs)/planificar",
+  "PLA-09": "/(tabs)/planificar",
   "AJU-01": "/(tabs)/ajustes",
 };
 
@@ -28,7 +28,7 @@ export function routeFor(id) {
 export function go(id, params) {
   if (!id) return;
   const route = routeFor(id);
-  const nav = router.navigate || router.push;
+  const nav = TAB_ROUTES[id] ? (router.navigate || router.push) : router.push;
   if (params && Object.keys(params).length > 0) nav({ pathname: route, params });
   else nav(route);
 }

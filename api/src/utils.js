@@ -109,6 +109,7 @@ function mapReceta(r, { ingredientes = [], favorito = false } = {}) {
     titulo: r.titulo,
     descripcion: r.descripcion,
     imagen: r.imagen,
+    tipo_comida: r.tipo_comida || "almuerzo",
     porciones: r.porciones,
     tiempo_preparacion_min: r.tiempo_preparacion_min,
     dificultad: r.dificultad,

@@ -6,6 +6,7 @@ const { mapReceta, aBase, mismoProducto, textoIngrediente } = require("../utils"
 const { asyncHandler } = require("../middleware/asyncHandler");
 
 const router = express.Router();
+const TIPOS_COMIDA = new Set(["desayuno", "almuerzo", "cena", "todas"]);
 
 // Columnas blancas para ordenar (evita inyección en ORDER BY).
 const ORDEN = {
@@ -161,9 +162,18 @@ function evaluarIngrediente(ing, casa) {
 
 // GET /api/recetas/disponibilidad?orden=cobertura&solo=disponibles
 router.get("/disponibilidad", authOpcional, asyncHandler(async (req, res) => {
+  const comida = req.query.comida == null ? null : String(req.query.comida);
+  if (comida && !["desayuno", "almuerzo", "cena"].includes(comida)) {
+    return res.status(400).json({ error: "comida debe ser desayuno, almuerzo o cena" });
+  }
   const hogarId = req.user ? await hogarDe(req.user.id) : null;
   const casa = await despensaDelHogar(hogarId);
-  const recetas = await q.all("SELECT * FROM recetas WHERE publica = TRUE");
+  const recetas = comida
+    ? await q.all(
+        "SELECT * FROM recetas WHERE publica = TRUE AND (tipo_comida = ? OR tipo_comida = 'todas')",
+        comida
+      )
+    : await q.all("SELECT * FROM recetas WHERE publica = TRUE");
 
   let salida = await Promise.all(recetas.map(async (r) => {
     const ings = (await ingredientesDe(r.id)).filter((i) => !i.opcional);
@@ -178,6 +188,7 @@ router.get("/disponibilidad", authOpcional, asyncHandler(async (req, res) => {
     return {
       id: r.id,
       nombre: r.titulo,
+      tipo_comida: r.tipo_comida,
       imagen: r.imagen,
       minutos: r.tiempo_preparacion_min,
       porciones: r.porciones,
@@ -223,8 +234,12 @@ router.get("/:id", authOpcional, asyncHandler(async (req, res) => {
 router.post("/", auth, asyncHandler(async (req, res) => {
   const r = req.body || {};
   const titulo = r.titulo || r.nombre;
+  const tipoComida = r.tipo_comida || "almuerzo";
   if (!r.id || !titulo) {
     return res.status(400).json({ error: "id y titulo son obligatorios" });
+  }
+  if (!TIPOS_COMIDA.has(tipoComida)) {
+    return res.status(400).json({ error: "tipo_comida no es válido" });
   }
   if (await q.get("SELECT id FROM recetas WHERE id = ?", r.id)) {
     return res.status(409).json({ error: "ya existe una receta con ese id" });
@@ -234,8 +249,8 @@ router.post("/", auth, asyncHandler(async (req, res) => {
       `INSERT INTO recetas
          (id, titulo, descripcion, imagen, porciones, tiempo_preparacion_min, dificultad,
           precio, distrito, nutri_calorias, nutri_proteinas, nutri_carbohidratos, nutri_grasas,
-          nutri_fibra, pasos, autor_id, publica)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          nutri_fibra, pasos, autor_id, publica, tipo_comida)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       r.id,
       titulo,
       r.descripcion || null,
@@ -252,7 +267,8 @@ router.post("/", auth, asyncHandler(async (req, res) => {
       r.nutri_fibra || 0,
       JSON.stringify(r.pasos || []),
       req.user.id,
-      r.publica === false ? false : true
+      r.publica === false ? false : true,
+      tipoComida
     );
     await insertarIngredientes(tx, r.id, r.ingredientes);
     return {
@@ -268,6 +284,9 @@ router.put("/:id", auth, asyncHandler(async (req, res) => {
   const existente = await q.get("SELECT * FROM recetas WHERE id = ?", req.params.id);
   if (!existente) return res.status(404).json({ error: "receta no encontrada" });
   const r = req.body || {};
+  if (r.tipo_comida != null && !TIPOS_COMIDA.has(r.tipo_comida)) {
+    return res.status(400).json({ error: "tipo_comida no es válido" });
+  }
   const actualizado = await db.transaction(async (tx) => {
     const update = await tx.run(
     `UPDATE recetas SET
@@ -285,6 +304,7 @@ router.put("/:id", auth, asyncHandler(async (req, res) => {
        nutri_grasas           = COALESCE(?, nutri_grasas),
        nutri_fibra            = COALESCE(?, nutri_fibra),
        pasos                  = COALESCE(?, pasos),
+       tipo_comida            = COALESCE(?, tipo_comida),
        publica                = COALESCE(?, publica)
      WHERE id = ?`,
     r.titulo ?? r.nombre ?? null,
@@ -301,6 +321,7 @@ router.put("/:id", auth, asyncHandler(async (req, res) => {
     r.nutri_grasas ?? null,
     r.nutri_fibra ?? null,
     r.pasos ? JSON.stringify(r.pasos) : null,
+    r.tipo_comida ?? null,
      r.publica == null ? null : !!r.publica,
      req.params.id
     );

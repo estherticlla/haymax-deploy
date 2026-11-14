@@ -34,7 +34,7 @@ export default function PLA_03({ receta }) {
 
   const planificarConFaltantes = async () => {
     await enviarFaltantesALista(falta);
-    go("PLA-05");
+    go("PLA-09");
   };
 
   return (
@@ -63,7 +63,7 @@ export default function PLA_03({ receta }) {
 
       <K.Note text="Enviaremos los faltantes a tu lista de compras." />
       <Button label="Planificar igual y agregar faltantes" full onPress={planificarConFaltantes} />
-      <Button label="Solo planificar" variant="outline" full onPress={() => go("PLA-05")} />
+      <Button label="Solo planificar" variant="outline" full onPress={() => go("PLA-09")} />
       <K.LinkText label="Ver mi lista de compras" align="CENTER" onPress={() => go("COM-01")} />
       <K.LinkText label="Cancelar" align="CENTER" onPress={() => go("PLA-01", { receta: r.id })} />
     </Screen>

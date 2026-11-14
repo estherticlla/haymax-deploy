@@ -1,15 +1,14 @@
-import { useState, useEffect, useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Image as ExpoImage } from "expo-image";
-import { useFocusEffect } from "expo-router";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import Icon from "../components/Icon";
 import * as K from "../components/kit";
 import { go } from "../lib/nav";
-import { colors, radius, spacing, typography, shadows } from "../tokens";
-import useApi from "../hooks/useApi";
-import { getPlanSemanaDe, eliminarPlan, generarListaCompras, planificarPlato, getMotor } from "../lib/api";
+import { colors, layout, radius, spacing, typography, shadows } from "../tokens";
+import { focoVisible } from "../lib/a11y";
+import { getPlanSemanaDe, eliminarPlan, getMotor } from "../lib/api";
 import { ingredienteAlcanza, soles } from "../lib/domain";
 import { resolverImagen } from "../lib/imagenes";
 import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
@@ -19,18 +18,15 @@ import {
   lunesDeIso,
   sumarDiasIso,
   deIso,
-  diaBonito,
   semanaNumero,
 } from "../lib/fechas";
 
 const NOMBRE = "Plan de la semana";
-const SECCIONES = [
+const COMIDAS = [
   { comida: "almuerzo", label: "Almuerzo", icon: "sunny-outline" },
   { comida: "cena", label: "Cena", icon: "moon-outline" },
-  { comida: "desayuno", label: "Desayuno o lonchera", icon: "cafe-outline" },
+  { comida: "desayuno", label: "Desayuno", icon: "cafe-outline" },
 ];
-const PLATOS_META = 21; // 7 días x 3 comidas
-const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"];
 const MESES_ABREV = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"];
 
 function fechaAccesible(iso) {
@@ -38,12 +34,18 @@ function fechaAccesible(iso) {
   return fecha.charAt(0).toUpperCase() + fecha.slice(1);
 }
 
-export default function PLA_09({ fecha }) {
+function comidaSeleccionable(valor) {
+  const comida = Array.isArray(valor) ? valor[0] : valor;
+  return COMIDAS.some((opcion) => opcion.comida === comida) ? comida : "almuerzo";
+}
+
+export default function PLA_09({ fecha, comida: comidaInicial }) {
   const hoy = hoyIso();
   const [offsetSemana, setOffsetSemana] = useState(0);
   const ancla = fecha || hoy;
   const lunesBase = lunesDeIso(ancla);
   const [sel, setSel] = useState(ancla);
+  const [comidaActiva, setComidaActiva] = useState(() => comidaSeleccionable(comidaInicial));
   const [ocupado, setOcupado] = useState(false);
   const [aviso, setAviso] = useState("");
 
@@ -51,23 +53,39 @@ export default function PLA_09({ fecha }) {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState(null);
   const [refresco, setRefresco] = useState(0);
-  const { data: motor, loading: motorCargando } = useApi(async () => {
-    const [disponibilidad, preferencias] = await Promise.all([getMotor(), leerPreferencias()]);
-    return { ...disponibilidad, recetas: filtrarRecetasPorPreferencias(disponibilidad.recetas || [], preferencias) };
-  });
   const recargar = useCallback(() => setRefresco((r) => r + 1), [setRefresco]);
+  const [recetas, setRecetas] = useState([]);
+  const [cargandoRecetas, setCargandoRecetas] = useState(true);
+  const [errorRecetas, setErrorRecetas] = useState("");
   const lunes = sumarDiasIso(lunesBase, offsetSemana * 7);
 
-  // Al volver a esta pantalla (desde el detalle, compras, etc.) refresca el
-  // plan por si cambió fuera de aquí.
-  useFocusEffect(
-    useCallback(() => {
-      setRefresco((r) => r + 1);
-    }, [setRefresco])
-  );
+  useEffect(() => {
+    setComidaActiva(comidaSeleccionable(comidaInicial));
+  }, [comidaInicial]);
 
-  // Recarga del plan cada vez que cambia la semana visible (o al volver al
-  // foco), con el mismo patrón de fetch propio que usa el calendario (PLA-05).
+  useEffect(() => {
+    let activo = true;
+    const cargarRecetas = async () => {
+      setCargandoRecetas(true);
+      setErrorRecetas("");
+      try {
+        const [motor, preferencias] = await Promise.all([getMotor(comidaActiva), leerPreferencias()]);
+        if (!activo) return;
+        setRecetas(filtrarRecetasPorPreferencias(motor.recetas || [], preferencias));
+      } catch (e) {
+        if (!activo) return;
+        setErrorRecetas((e && e.message) || "No se pudieron cargar las recetas recomendadas.");
+      } finally {
+        if (activo) setCargandoRecetas(false);
+      }
+    };
+    cargarRecetas();
+    return () => {
+      activo = false;
+    };
+  }, [comidaActiva, refresco]);
+
+  // Recarga del plan cada vez que cambia la semana visible o al volver al foco.
   useEffect(() => {
     let vivo = true;
     Promise.resolve()
@@ -116,25 +134,8 @@ export default function PLA_09({ fecha }) {
 
   const diaSel = dias.some((d) => d.iso === sel) ? sel : lunes;
   const planesDia = datos.plan.filter((p) => p.fecha === diaSel);
-  const planesSemana = datos.plan.filter((p) => p.fecha >= lunes && p.fecha <= finSemana);
-
-  // Progreso de insumos: % de insumos cubiertos por los platos de la semana.
-  let totalInsumos = 0;
-  let insumosListos = 0;
-  planesSemana.forEach((f) => {
-    if (!f.receta) return;
-    const detalle =
-      f.receta.ingredientes_detalle && f.receta.ingredientes_detalle.length
-        ? f.receta.ingredientes_detalle
-        : (f.receta.ingredientes || []).map((t) => ({ nombre: t }));
-    if (!detalle.length) return;
-    totalInsumos += detalle.length;
-    const v = ingredienteAlcanza(f.receta, datos.pantry, f.porciones);
-    insumosListos += Math.max(0, detalle.length - v.faltantes.length);
-  });
-  const pct = totalInsumos ? insumosListos / totalInsumos : 0;
-  const bonito = diaBonito(DIAS_SEMANA[deIso(diaSel).getDay()]);
-
+  const comidaSeleccionada = COMIDAS.find((opcion) => opcion.comida === comidaActiva) || COMIDAS[0];
+  const filaSeleccionada = planesDia.find((p) => p.comida === comidaActiva);
   const quitar = async (id) => {
     if (ocupado) return;
     setOcupado(true);
@@ -149,55 +150,10 @@ export default function PLA_09({ fecha }) {
     }
   };
 
-  const generar = async () => {
-    if (ocupado) return;
-    setOcupado(true);
-    try {
-      await generarListaCompras(diaSel);
-      go("COM-01");
-    } catch (e) {
-      setAviso((e && e.message) || "No se pudo generar la lista.");
-      setOcupado(false);
-    }
-  };
-
   const moverSemana = (d) => {
     setOffsetSemana((o) => o + d);
     setSel(sumarDiasIso(lunes, d * 7));
   };
-
-  // "Sugerir auto": la receta con mejor cobertura que no esté en el día se
-  // agrega al primer hueco del día seleccionado.
-  const sugerir = async () => {
-    if (ocupado || !motor) return;
-    setOcupado(true);
-    try {
-      const hueco = SECCIONES.find((s) => !planesDia.some((p) => p.comida === s.comida));
-      if (!hueco) {
-        setAviso("El día ya está completo. Usa «Cambiar plato» para reemplazar.");
-        return;
-      }
-      const yaEnDia = new Set(planesDia.map((p) => p.receta_id));
-      const mejor = (motor.recetas || []).find((r) => !yaEnDia.has(r.id));
-      if (!mejor) {
-        setAviso("No hay recetas nuevas para sugerir hoy.");
-        return;
-      }
-      await planificarPlato({ recetaId: mejor.id, fecha: diaSel, comida: hueco.comida, porciones: mejor.porciones });
-      setAviso("");
-      recargar();
-    } catch (e) {
-      setAviso((e && e.message) || "No se pudo planificar la sugerencia.");
-    } finally {
-      setOcupado(false);
-    }
-  };
-
-  // Receta de mejor cobertura para sugerir en los estados vacíos.
-  const sugerenciaVacia =
-    motor && (motor.recetas || []).length
-      ? `Sugerencia: ${motor.recetas[0].nombre} está en tu alacena`
-      : "Sugerencia: revisa la receta que mejor cubre tu alacena";
 
   return (
     <Screen id="PLA-09" name={NOMBRE}>
@@ -205,19 +161,12 @@ export default function PLA_09({ fecha }) {
         <Text style={styles.headerTitle}>Plan de la semana</Text>
         <View style={styles.headerSub}>
           <Icon name="calendar-outline" size={13} color={colors.primary} />
-          <Text style={styles.headerSubText}>{etiquetaSemana(lunes, finSemana)}</Text>
+          <Text style={styles.headerSubText}>{`${etiquetaSemana(lunes, finSemana)} · Semana ${semanaNumero(lunes)}`}</Text>
         </View>
       </View>
 
-      <K.Progress
-        label={`${Math.round(pct * 100)}% de insumos listos en tu alacena`}
-        right={`${planesSemana.length} / ${PLATOS_META} platos`}
-        pct={pct}
-      />
-
       <View style={styles.selRow}>
         <Text style={styles.selLabel}>SELECCIONA EL DÍA</Text>
-        <Text style={styles.selSemana}>{`Semana ${semanaNumero(lunes)}`}</Text>
       </View>
       <View style={styles.diasFila}>
         <Flecha icon="chevron-back" accessibilityLabel="Semana anterior" onPress={() => moverSemana(-1)} disabled={ocupado} />
@@ -231,11 +180,11 @@ export default function PLA_09({ fecha }) {
                 accessibilityRole="button"
                 accessibilityLabel={`${d.corto} ${d.num}, ${fechaAccesible(d.iso)}${d.esHoy ? ", hoy (HOY)" : ""}`}
                 accessibilityState={{ selected: activo, disabled: false }}
-                style={[styles.diaChip, d.esHoy && styles.diaChipHoy, activo && !d.esHoy && styles.diaChipSel]}
+                style={[styles.diaChip, activo && styles.diaChipSel]}
               >
-                {d.esHoy && <Text style={styles.diaChipHoyTag}>HOY</Text>}
-                <Text style={[styles.diaChipDow, d.esHoy ? styles.diaChipTextoOn : activo ? styles.diaChipTextoSel : null]}>{d.corto}</Text>
-                <Text style={[styles.diaChipNum, d.esHoy ? styles.diaChipTextoOn : activo ? styles.diaChipTextoSel : null]}>{d.num}</Text>
+                {d.esHoy && <Text style={[styles.diaChipHoyTag, activo && styles.diaChipHoyTagSelected]}>HOY</Text>}
+                <Text style={[styles.diaChipDow, activo && styles.diaChipTextoOn]}>{d.corto}</Text>
+                <Text style={[styles.diaChipNum, activo && styles.diaChipTextoOn]}>{d.num}</Text>
               </Pressable>
             );
           })}
@@ -243,52 +192,61 @@ export default function PLA_09({ fecha }) {
         <Flecha icon="chevron-forward" accessibilityLabel="Semana siguiente" onPress={() => moverSemana(1)} disabled={ocupado} />
       </View>
 
-      <View style={styles.menuRow}>
-        <Text style={styles.menuTitulo}>
-          {`Menú del ${bonito.charAt(0).toUpperCase() + bonito.slice(1)}`}
-        </Text>
-        <K.Chips items={[`${planesDia.length} platos`]} ok />
-        <Pressable onPress={sugerir} disabled={ocupado || !motor} accessibilityRole="button" accessibilityLabel={motorCargando ? "Sugerir…" : "Sugerir auto"} accessibilityState={{ disabled: ocupado || !motor, busy: motorCargando }} hitSlop={6} style={({ pressed }) => pressed && styles.pressOn}>
-          <Text style={styles.menuSugerir}>{motorCargando ? "Sugerir…" : "Sugerir auto"}</Text>
-        </Pressable>
+      <View style={styles.comidas}>
+        <Text style={styles.selLabel}>ELIGE UNA COMIDA</Text>
+        <K.Chips
+          items={COMIDAS.map((opcion) => opcion.label)}
+          active={comidaSeleccionada.label}
+          onPressItem={(label) => {
+            const opcion = COMIDAS.find((item) => item.label === label);
+            if (opcion) setComidaActiva(opcion.comida);
+          }}
+          accessibilityRole="radio"
+          groupRole="radiogroup"
+          groupLabel="Comida a planificar"
+          hintItem="Muestra el platillo planificado para esta comida"
+        />
       </View>
 
       {aviso ? <K.Banner title={aviso} tone="RED" /> : null}
 
-      {SECCIONES.map(({ comida, label, icon }) => {
-        const fila = planesDia.find((p) => p.comida === comida);
-        return (
-          <View key={comida} style={styles.tarjeta}>
-            <View style={styles.tarjetaCab}>
-              <Icon name={icon} size={16} color={colors.primary} />
-              <Text style={styles.tarjetaLabel}>{label}</Text>
-            </View>
+      {filaSeleccionada && filaSeleccionada.receta ? (
+        <View style={styles.tarjeta}>
+          <BloquePlanificado fila={filaSeleccionada} pantry={datos.pantry} ocupado={ocupado} quitar={quitar} />
+        </View>
+      ) : null}
 
-            {fila && fila.receta ? (
-              <BloquePlanificado fila={fila} pantry={datos.pantry} ocupado={ocupado} quitar={quitar} />
-            ) : (
-              <Pressable
-                onPress={() => go("PLA-06", { fecha: diaSel, comida })}
-                accessibilityRole="button"
-                accessibilityLabel={`+ Agregar receta o insumo rápido. ${sugerenciaVacia}`}
-                accessibilityState={{ disabled: false }}
-                style={({ pressed }) => [styles.vacio, pressed && styles.pressOn]}
-              >
-                <View style={styles.vacioMas}>
-                  <Icon name="add" size={26} color={colors.primary} />
-                </View>
-                <Text style={styles.vacioTitulo}>+ Agregar receta o insumo rápido</Text>
-                <Text style={styles.vacioSub}>
-                  {sugerenciaVacia}
-                </Text>
-              </Pressable>
-            )}
-          </View>
-        );
-      })}
+      <K.TextLine
+        text={`${recetas.length} recetas recomendadas para esta comida.`}
+      />
+      {cargandoRecetas ? (
+        <K.Loading text="Buscando recetas recomendadas…" />
+      ) : errorRecetas ? (
+        <K.ErrorState text={errorRecetas} />
+      ) : recetas.length > 0 ? (
+        recetas.map((receta) => (
+          <TarjetaReceta
+            key={receta.id}
+            imagen={receta.imagen}
+            titulo={receta.nombre}
+            tiempo={receta.minutos}
+            porciones={receta.porciones}
+            cobertura={receta.cobertura}
+            disponible={receta.disponible}
+            precio={receta.precio}
+            onPress={() => go("REC-02", {
+              receta: receta.id,
+              fecha: diaSel,
+              comida: comidaActiva,
+              planId: filaSeleccionada && filaSeleccionada.id,
+              yaPlanificado: !!filaSeleccionada,
+            })}
+          />
+        ))
+      ) : (
+        <K.EmptyState title="No hay recetas recomendadas" sub="Prueba con otra comida o revisa tus preferencias." />
+      )}
 
-      <Button label="Generar lista de compras" variant="outline" full onPress={generar} />
-      <K.LinkText label="Volver al calendario" align="CENTER" onPress={() => go("PLA-05")} />
     </Screen>
   );
 }
@@ -319,7 +277,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
   return (
     <View style={styles.bloque}>
       <Pressable
-        onPress={() => go("REC-02", { receta: r.id })}
+        onPress={() => go("REC-02", { receta: r.id, fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })}
         accessibilityRole="button"
         accessibilityLabel={`${r.nombre}. Ver receta`}
         accessibilityState={{ disabled: false }}
@@ -345,7 +303,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
         </View>
       </Pressable>
 
-      <Text style={styles.titulo} onPress={() => go("REC-02", { receta: r.id })}>
+      <Text style={styles.titulo} onPress={() => go("REC-02", { receta: r.id, fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })}>
         {r.nombre}
       </Text>
       <View style={styles.metaFila}>
@@ -363,7 +321,7 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
 
       <View style={styles.accionRow}>
         <View style={styles.accionBtn}>
-          <Button label="⇄  Cambiar plato" variant="outline" onPress={() => go("PLA-06", { fecha: fila.fecha, comida: fila.comida, planId: fila.id })} />
+          <Button label="⇄  Cambiar plato" variant="outline" onPress={() => go("PLA-06", { fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })} />
         </View>
         <Pressable onPress={() => quitar(fila.id)} disabled={ocupado} accessibilityRole="button" accessibilityLabel={`Quitar ${r.nombre} del plan`} accessibilityState={{ disabled: ocupado }} hitSlop={8} style={({ pressed }) => [pressed && styles.pressOn, styles.basuraWrap]}>
           <View style={styles.basura}>
@@ -372,6 +330,54 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
         </Pressable>
       </View>
     </View>
+  );
+}
+
+function TarjetaReceta({ imagen, titulo, tiempo, porciones, cobertura, disponible, precio, onPress }) {
+  const fuente = resolverImagen(imagen);
+  const todosListos = disponible || Number(cobertura) >= 100;
+  const estado = todosListos
+    ? "Tienes todos los ingredientes"
+    : cobertura > 0
+      ? `${cobertura}% de ingredientes disponibles`
+      : "Te faltan ingredientes";
+
+  return (
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${titulo}. Elegir este platillo`}
+      accessibilityHint="Abre el detalle para planificar esta receta"
+      accessibilityState={{ disabled: false }}
+      style={(state) => [styles.recetaTarjeta, state.pressed && styles.pressOn, focoVisible(state)]}
+    >
+      <View style={styles.recetaImagenWrap}>
+        {fuente ? (
+          <ExpoImage source={fuente} style={styles.recetaImagen} contentFit="cover" transition={150} cachePolicy="memory-disk" />
+        ) : (
+          <View style={[styles.recetaImagen, styles.fotoPh]}>
+            <Icon name="restaurant-outline" size={38} color={colors.primary} />
+          </View>
+        )}
+        <View style={styles.pillPrecio}>
+          <Text style={styles.pillPrecioText}>{`${soles(precio)} total`}</Text>
+        </View>
+        <View style={[styles.pillEstado, { backgroundColor: todosListos ? colors.greenBg : colors.amberBg }]}>
+          <Icon name={todosListos ? "checkmark" : "alert-circle-outline"} size={12} color={todosListos ? colors.green : colors.amber} />
+          <Text style={[styles.pillEstadoText, { color: todosListos ? colors.green : colors.amber }]}>{estado}</Text>
+        </View>
+      </View>
+      <View style={styles.recetaCuerpo}>
+        <Text style={styles.titulo}>{titulo}</Text>
+        <View style={styles.metaFila}>
+          <Icon name="time-outline" size={13} color={colors.muted} />
+          <Text style={styles.meta}>{`${tiempo} min`}</Text>
+          <Icon name="restaurant-outline" size={13} color={colors.muted} />
+          <Text style={styles.meta}>{`${porciones} porciones`}</Text>
+        </View>
+        <Text style={styles.recetaAccion}>Elegir este platillo →</Text>
+      </View>
+    </Pressable>
   );
 }
 
@@ -419,7 +425,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 2,
   },
   selLabel: { fontSize: 11, letterSpacing: 1, fontWeight: typography.weights.semibold, color: colors.muted },
-  selSemana: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
   diasFila: { flexDirection: "row", alignItems: "center" },
   diasScroll: { flexGrow: 1, gap: 6, paddingHorizontal: 4 },
   diaChip: {
@@ -433,17 +438,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     gap: 1,
   },
-  diaChipHoy: { backgroundColor: colors.primary, borderColor: colors.primary },
-  diaChipSel: { backgroundColor: colors.primaryLight, borderColor: colors.primary, borderWidth: 2 },
-  diaChipHoyTag: { fontSize: 8, fontWeight: typography.weights.bold, color: colors.white, letterSpacing: 1 },
+  diaChipSel: { backgroundColor: colors.primary, borderColor: colors.primary, borderWidth: 2 },
+  diaChipHoyTag: { fontSize: 8, fontWeight: typography.weights.bold, color: colors.primary, letterSpacing: 1 },
+  diaChipHoyTagSelected: { color: colors.white },
   diaChipDow: { fontSize: typography.sizes.caption, color: colors.sub },
   diaChipNum: { fontSize: typography.sizes.body, fontWeight: typography.weights.bold, color: colors.text },
   diaChipTextoOn: { color: colors.white },
-  diaChipTextoSel: { color: colors.primary },
 
-  menuRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: spacing.sm, marginTop: spacing.sm, marginBottom: 4 },
-  menuTitulo: { flex: 1, fontSize: typography.sizes.subtitle, fontWeight: typography.weights.bold, color: colors.text },
-  menuSugerir: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
+  comidas: { gap: spacing.xs, marginTop: spacing.md },
 
   tarjeta: {
     backgroundColor: colors.white,
@@ -452,9 +454,16 @@ const styles = StyleSheet.create({
     ...shadows.card,
     marginBottom: spacing.sm,
   },
-  tarjetaCab: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 6, paddingHorizontal: 2 },
-  tarjetaLabel: { flex: 1, fontSize: typography.sizes.label, fontWeight: typography.weights.bold, color: colors.text },
-
+  recetaTarjeta: {
+    backgroundColor: colors.white,
+    borderRadius: radius.lg,
+    overflow: "hidden",
+    ...shadows.card,
+  },
+  recetaImagenWrap: { height: layout.emptyStateMinHeight, backgroundColor: colors.primaryLight },
+  recetaImagen: { width: "100%", height: "100%" },
+  recetaCuerpo: { padding: spacing.sm, gap: spacing.xs },
+  recetaAccion: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
   bloque: { gap: 6 },
   fotoWrap: { height: 150, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.primaryLight },
   foto: { width: "100%", height: "100%" },
@@ -502,25 +511,4 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
 
-  vacio: {
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.field,
-    alignItems: "center",
-    padding: spacing.md,
-    gap: 4,
-  },
-  vacioMas: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    borderWidth: 1.5,
-    borderColor: colors.primary,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 2,
-  },
-  vacioTitulo: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary, textAlign: "center" },
-  vacioSub: { fontSize: typography.sizes.small, color: colors.muted, textAlign: "center" },
 });

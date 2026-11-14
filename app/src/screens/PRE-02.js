@@ -119,7 +119,7 @@ export default function PRE_02({ receta, porciones }) {
       <Button label={guardo ? "Guardando…" : "Confirmar cantidades"} full loading={guardo} onPress={confirmar} />
       <Button label="Deshacer y restaurar despensa" variant="outline" full disabled={guardo} onPress={deshacer} />
       <Button label="Ver resumen de salud" variant="ghost" full onPress={() => go("SAL-01")} />
-      <K.LinkText label="Volver a mi plan" align="CENTER" onPress={() => go("PLA-05")} />
+      <K.LinkText label="Volver a mi plan" align="CENTER" onPress={() => go("PLA-09")} />
       {aviso ? <K.Banner title={aviso} tone="RED" /> : null}
     </Screen>
   );

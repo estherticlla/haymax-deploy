@@ -38,7 +38,7 @@ export default function PLA_02({ receta, porciones, dia }) {
         ))}
       </View>
       <K.Note text="Actualizaremos tu plan cada noche mientras duermes." />
-      <Button label="Entendido" full onPress={() => go("PLA-05")} />
+      <Button label="Entendido" full onPress={() => go("PLA-09")} />
       <Button label="Ver mi plan de hoy" variant="outline" full onPress={() => go("INI-01")} />
     </Screen>
   );

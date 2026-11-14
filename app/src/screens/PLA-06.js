@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
 import Screen from "../components/Screen";
@@ -37,12 +37,24 @@ function estadoDe(d) {
   };
 }
 
-export default function PLA_06({ fecha, comida: comidaInicial, planId }) {
+export default function PLA_06({ fecha, comida: comidaInicial, planId, yaPlanificado }) {
+  const comidaFija = comidaInicial != null && comidaInicial !== "";
   const [comida, setComida] = useState(comidaInicial || "almuerzo");
+  const comidaSolicitada = useRef(comida);
   const { data, loading, error, recargar } = useApi(async () => {
-    const [motor, preferencias] = await Promise.all([getMotor(), leerPreferencias()]);
+    const [motor, preferencias] = await Promise.all([getMotor(comida), leerPreferencias()]);
     return { ...motor, recetas: filtrarRecetasPorPreferencias(motor.recetas || [], preferencias) };
   });
+
+  useEffect(() => {
+    if (comidaFija) setComida(comidaInicial);
+  }, [comidaInicial, comidaFija]);
+
+  useEffect(() => {
+    if (comidaSolicitada.current === comida) return;
+    comidaSolicitada.current = comida;
+    recargar();
+  }, [comida, recargar]);
 
   if (loading) {
     return (
@@ -61,16 +73,25 @@ export default function PLA_06({ fecha, comida: comidaInicial, planId }) {
 
   const recetas = data.recetas || [];
   const fechaTxt = fechaLarga(fecha);
+  const comidaBonita = (COMIDAS.find((item) => item.value === comida) || COMIDAS[1]).label;
 
   return (
     <Screen id="PLA-06" name={NOMBRE}>
-      <K.SectionTitle title={fechaTxt} action={planId ? "Cambiando platillo" : undefined} />
-      <K.SectionTitle title="¿Para qué comida?" />
-      <K.Chips
-        items={COMIDAS.map((c) => c.label)}
-        active={(COMIDAS.find((c) => c.value === comida) || {}).label}
-        onPressItem={(label) => setComida(COMIDAS.find((c) => c.label === label).value)}
-      />
+      <K.SectionTitle title={`Elige tu ${comidaBonita}`} action={planId ? "Cambiando platillo" : undefined} />
+      <K.TextLine text={fechaTxt} />
+      {!comidaFija ? (
+        <>
+          <K.SectionTitle title="¿Para qué comida?" />
+          <K.Chips
+            items={COMIDAS.map((c) => c.label)}
+            active={(COMIDAS.find((c) => c.value === comida) || {}).label}
+            onPressItem={(label) => setComida(COMIDAS.find((c) => c.label === label).value)}
+            accessibilityRole="radio"
+            groupRole="radiogroup"
+            groupLabel="Comida para el platillo"
+          />
+        </>
+      ) : null}
       <K.TextLine text={`${recetas.length} recetas recomendadas. Todos los platillos son seleccionables; si faltan ingredientes, podrás enviarlos a tu lista de compras.`} />
 
       {recetas.length === 0 && (
@@ -84,7 +105,7 @@ export default function PLA_06({ fecha, comida: comidaInicial, planId }) {
             key={r.id}
             plato={r}
             estado={est}
-            onPress={() => go("PLA-07", { receta: r.id, fecha, comida, planId })}
+            onPress={() => go("REC-02", { receta: r.id, fecha, comida, planId, yaPlanificado })}
           />
         );
       })}

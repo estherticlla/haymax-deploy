@@ -1,7 +1,7 @@
 import { useEffect } from "react";
 import { ScrollView, View, StyleSheet } from "react-native";
 import AppBar from "./AppBar";
-import { canGoBack, replaceTo } from "../lib/nav";
+import { canGoBack, go, replaceTo } from "../lib/nav";
 import { anunciar } from "../lib/a11y";
 import { router } from "expo-router";
 import { colors, spacing } from "../tokens";
@@ -22,9 +22,11 @@ export default function Screen({ id, name, children, right }) {
         crumb={id}
         right={right}
         onBack={
-          id === "DES-04"
+          id === "PLA-05"
+            ? () => go("PLA-09")
+            : id === "DES-04"
             ? () => replaceTo("DES-03")
-            : !["ACC-01", "ACC-02", "ACC-03", "INI-01", "DES-01", "PLA-05", "AJU-01"].includes(id) && canGoBack()
+            : !["ACC-01", "ACC-02", "ACC-03", "INI-01", "DES-01", "PLA-09", "AJU-01"].includes(id) && canGoBack()
               ? () => router.back()
               : undefined
         }

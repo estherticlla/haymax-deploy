@@ -51,6 +51,24 @@ const productos = [
   { id: 41, nombre: "Sillao", categoria: "Condimentos", unidad_medida_base: "botella" }
 ];
 
+const tiposComidaRecetas = {
+  "REC-LOMO": "almuerzo",
+  "REC-AGALLINA": "almuerzo",
+  "REC-HUANCAINA": "almuerzo",
+  "REC-CEVICHE": "almuerzo",
+  "REC-CHAUFA": "almuerzo",
+  "REC-TALLARIN": "cena",
+  "REC-SECO": "almuerzo",
+  "REC-LENTEJAS": "cena",
+  "REC-FREJOLES": "almuerzo",
+  "REC-CHUPE": "cena",
+  "REC-CONCHAS": "cena",
+  "REC-PAPARELLENA": "almuerzo",
+  "REC-TACUTACU": "almuerzo",
+  "REC-ROCOTO": "cena",
+  "REC-ENSALADA": "almuerzo",
+};
+
 const recetas = [
   {
     id: "REC-LOMO",
@@ -524,11 +542,13 @@ async function seed() {
         `INSERT INTO recetas
            (id, titulo, descripcion, imagen, porciones, tiempo_preparacion_min, dificultad, precio,
             distrito, nutri_calorias, nutri_proteinas, nutri_carbohidratos, nutri_grasas, nutri_fibra,
-            pasos, autor_id, publica)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE) ON CONFLICT DO NOTHING`,
+            pasos, autor_id, publica, tipo_comida)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, TRUE, ?)
+         ON CONFLICT (id) DO UPDATE SET tipo_comida = EXCLUDED.tipo_comida`,
         r.id, r.titulo, r.descripcion, r.imagen, r.porciones, r.tiempo_preparacion_min, r.dificultad,
         r.precio, r.distrito, r.nutri_calorias, r.nutri_proteinas, r.nutri_carbohidratos,
-        r.nutri_grasas, r.nutri_fibra, JSON.stringify(r.pasos), rosa.id
+        r.nutri_grasas, r.nutri_fibra, JSON.stringify(r.pasos), rosa.id,
+        tiposComidaRecetas[r.id] || "almuerzo"
       );
     }
 

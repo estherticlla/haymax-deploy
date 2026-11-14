@@ -43,13 +43,13 @@ export default function INI_01() {
             : "Planifica uno para poder descontar sus insumos al cocinar"
         }
         right={hayPlan ? "Ver" : "Planificar"}
-        onPress={() => (hayPlan ? go("REC-02", { receta: recetaHoy.id }) : go("PLA-05"))}
+        onPress={() => (hayPlan ? go("REC-02", { receta: recetaHoy.id }) : go("PLA-09"))}
       />
       <K.Card
         title="Ingredientes faltantes"
         sub={`${shop.listos} de ${shop.total} ingredientes listos`}
         right="Ver"
-        onPress={() => go("COM-01")}
+        onPress={() => go("PLA-09")}
       />
 
       <K.SectionTitle title="Acciones rápidas" />
@@ -71,9 +71,9 @@ export default function INI_01() {
       <K.QuickAction
         icon="restaurant-outline"
         label="Planificar un plato nuevo"
-        sub="Abre el calendario de planificación"
+        sub="Abre tu plan semanal"
         variant="primary"
-        onPress={() => go("PLA-05")}
+        onPress={() => go("PLA-09")}
       />
       <K.QuickAction
         icon="calendar-outline"

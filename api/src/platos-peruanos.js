@@ -60,6 +60,16 @@ platos.push(
   ["GUISOCHOCLO", "Guiso de choclo y queso", 4, 40, 20, "Choclo|4|und;Queso fresco|200|gr;Leche evaporada|1|lata;Cebolla roja|1|und;Ají amarillo|1|und", "Desgrana el choclo|Prepara un aderezo con cebolla y ají|Añade el choclo con agua y cocina hasta ablandar|Incorpora leche y queso; calienta y sirve"]
 );
 
+// Desayunos peruanos disponibles en el filtro de planificaci\u00f3n.
+platos.push(
+  ["DESAYUNOQUINUA", "Quinua at\u00f3mica con leche", 2, 25, 12, "Quinua|120|gr;Leche|500|ml;Platano de seda|1|und;Canela|1|gr", "Lava la quinua y coc\u00ednala con agua hasta que reviente|Agrega la leche y cocina a fuego bajo|Sirve con pl\u00e1tano picado y canela", "desayuno"],
+  ["AVENAMACA", "Avena con maca y frutas", 2, 15, 11, "Avena|100|gr;Maca|10|gr;Leche|400|ml;Manzana|1|und;Platano de seda|1|und", "Hierve la avena con leche y maca, moviendo hasta espesar|Pica la manzana y el pl\u00e1tano|Sirve la avena con la fruta", "desayuno"],
+  ["PANTORTILLA", "Pan con tortilla de huevo y palta", 2, 20, 14, "Pan frances|2|und;Huevo|3|und;Palta|1|und;Cebolla roja|0.25|und", "Bate los huevos con cebolla picada|Cocina la tortilla en una sart\u00e9n hasta cuajar|Abre los panes y rellena con tortilla y palta", "desayuno"],
+  ["TAMALCRIOLLO", "Tamal criollo", 4, 90, 24, "Harina de ma\u00edz|400|gr;Pollo|300|gr;Aceitunas|4|und;Huevo|2|und;Cebolla roja|1|und;Ajo|2|und", "Prepara un aderezo de cebolla y ajo y cocina el pollo|Mezcla la harina con caldo hasta formar una masa suave|Rellena porciones con pollo, huevo y aceituna|Envuelve y cocina al vapor hasta que la masa est\u00e9 firme", "desayuno"],
+  ["SANGUCHEDESPOLLO", "S\u00e1nguche de pollo deshilachado", 2, 25, 16, "Pan frances|2|und;Pechuga de pollo|250|gr;Mayonesa|30|gr;Lechuga|2|hoja;Palta|1|und", "Cocina el pollo y deshil\u00e1chalo|Mezcla con mayonesa|Abre los panes y agrega pollo, lechuga y palta", "desayuno"],
+  ["MAZAMORRAMORADA", "Mazamorra morada", 4, 50, 15, "Maiz morado|300|gr;Pina|0.5|und;Manzana|1|und;Chuno|40|gr;Canela|2|gr;Clavo de olor|1|gr", "Hierve el ma\u00edz morado con canela y clavo y cuela el l\u00edquido|Agrega pi\u00f1a y manzana picadas y cocina hasta ablandar|Disuelve el chu\u00f1o en agua fr\u00eda, incorp\u00f3ralo y mueve hasta espesar", "desayuno"]
+);
+
 const categorias = {
   "Mayonesa": ["Secos", "gr"], "Chicha de jora": ["Bebidas", "ml"], "Comino": ["Condimentos", "gr"],
   "Orégano": ["Condimentos", "gr"], "Gallina": ["Carnes", "gr"], "Aceitunas": ["Secos", "und"],
@@ -71,19 +81,26 @@ const categorias = {
   "Harina de trigo": ["Secos", "gr"], "Atún en conserva": ["Secos", "lata"], "Raya": ["Mariscos", "gr"], "Choros": ["Mariscos", "und"],
   "Fideos cabello de ángel": ["Pastas", "gr"], "Albahaca": ["Verduras", "atado"], "Plátano verde": ["Frutas", "und"],
   "Cecina": ["Carnes", "gr"], "Harina de maíz": ["Secos", "gr"], "Pallares": ["Menestras", "gr"],
-  "Arveja partida": ["Menestras", "gr"], "Tarwi cocido": ["Menestras", "gr"], "Vinagre": ["Condimentos", "ml"]
+  "Arveja partida": ["Menestras", "gr"], "Tarwi cocido": ["Menestras", "gr"], "Vinagre": ["Condimentos", "ml"],
+  "Avena": ["Secos", "gr"], "Maca": ["Secos", "gr"], "Manzana": ["Frutas", "und"],
+  "Platano de seda": ["Frutas", "und"], "Pan frances": ["Secos", "und"], "Canela": ["Condimentos", "gr"],
+  "Maiz morado": ["Secos", "gr"], "Pina": ["Frutas", "und"], "Chuno": ["Secos", "gr"],
+  "Clavo de olor": ["Condimentos", "gr"], "Lechuga": ["Verduras", "hoja"]
 };
 
 const { diasVidaUtilPorProducto } = require("./vida-util");
 
 async function cargarPlatosPeruanos(tx, autorId) {
-  for (const [codigo, titulo, porciones, minutos, precio, lista, pasos] of platos) {
+  const cenas = new Set(["SOPAQUINUA", "CHILCANO", "MENESTRON", "SOPAOLLUCO"]);
+  for (const [codigo, titulo, porciones, minutos, precio, lista, pasos, tipoComida] of platos) {
     const id = `REC-PE-${codigo}`;
+    const tipo = tipoComida || (cenas.has(codigo) ? "cena" : "almuerzo");
     const creado = await tx.get(
-      `INSERT INTO recetas (id, titulo, descripcion, porciones, tiempo_preparacion_min, dificultad, precio, pasos, autor_id, publica)
-       VALUES (?, ?, ?, ?, ?, 'media', ?, ?, ?, TRUE) ON CONFLICT (id) DO NOTHING RETURNING id`,
-      id, titulo, `Receta peruana de ${titulo.toLowerCase()}.`, porciones, minutos, precio, JSON.stringify(pasos.split('|')), autorId
+      `INSERT INTO recetas (id, titulo, descripcion, porciones, tiempo_preparacion_min, dificultad, precio, pasos, autor_id, publica, tipo_comida)
+       VALUES (?, ?, ?, ?, ?, 'media', ?, ?, ?, TRUE, ?) ON CONFLICT (id) DO NOTHING RETURNING id`,
+      id, titulo, `Receta peruana de ${titulo.toLowerCase()}.`, porciones, minutos, precio, JSON.stringify(pasos.split('|')), autorId, tipo
     );
+    if (!creado) await tx.run("UPDATE recetas SET tipo_comida = ? WHERE id = ?", tipo, id);
     for (const [orden, entrada] of lista.split(';').entries()) {
       const [nombre, cantidad, unidad] = entrada.split('|');
       const existente = await tx.get(

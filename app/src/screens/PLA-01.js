@@ -133,7 +133,7 @@ export default function PLA_01({ receta, plan: planId, porciones: porcGuardadas,
 
       <Button label={guardo ? "Guardando…" : "Confirmar porciones"} full onPress={confirmar} />
       <K.LinkText label="Ver resultado con faltantes (demo)" align="CENTER" onPress={() => go("PLA-03", { receta: r.id })} />
-      <K.LinkText label="Cancelar" align="CENTER" onPress={() => go("PLA-05")} />
+      <K.LinkText label="Cancelar" align="CENTER" onPress={() => go("PLA-09")} />
       {aviso ? <K.Banner title={aviso} tone="RED" /> : null}
     </Screen>
   );

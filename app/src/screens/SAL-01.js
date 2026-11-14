@@ -51,7 +51,7 @@ export default function SAL_01() {
         <K.Card key={s.id} title={s.title} sub={s.sub} />
       ))}
 
-      <Button label="Cocinar algo más balanceado" full onPress={() => go("PLA-05")} />
+      <Button label="Cocinar algo más balanceado" full onPress={() => go("PLA-09")} />
     </Screen>
   );
 }
