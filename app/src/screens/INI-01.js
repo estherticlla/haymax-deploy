@@ -28,9 +28,10 @@ export default function INI_01() {
     );
   }
 
-  const { hoy, primerNombre, inicial, plan, recetaHoy, sugerida, disponibilidadHoy, stats, shop, balance, atencion } = data;
+  const { hoy, primerNombre, inicial, plan, recetaHoy, sugerida, disponibilidadHoy, esManana, stats, shop, balance, atencion } = data;
   const comida = (plan && plan.comida) || "almuerzo";
   const hayPlan = !!plan;
+  const planParaHoy = hayPlan && !esManana;
   const preparado = !!(plan && plan.completado);
   const platoTarjeta = hayPlan ? recetaHoy : sugerida || recetaHoy;
 
@@ -45,6 +46,7 @@ export default function INI_01() {
           comida={comida}
           porciones={(plan && plan.porciones) || platoTarjeta.porciones}
           hayPlan={hayPlan}
+          esManana={!!esManana}
           preparado={preparado}
           onVerDetalle={() => go("REC-02", { receta: platoTarjeta.id })}
         />
@@ -59,7 +61,7 @@ export default function INI_01() {
       />
 
       <K.SectionTitle title="Acciones rápidas" />
-      {preparado ? (
+      {preparado && planParaHoy ? (
         <K.QuickAction
           icon="checkmark-done-outline"
           label="Plato de hoy preparado"
@@ -70,8 +72,8 @@ export default function INI_01() {
         <K.QuickAction
           icon="checkmark-done-outline"
           label="Ya lo preparé"
-          sub={hayPlan ? "Descontar insumos de mi despensa" : "Elige el plato que cocinaste"}
-          onPress={() => (hayPlan ? go("PRE-01", { receta: recetaHoy.id }) : go("REC-01"))}
+          sub={planParaHoy ? "Descontar insumos de mi despensa" : "Elige el plato que cocinaste"}
+          onPress={() => (planParaHoy ? go("PRE-01", { receta: recetaHoy.id }) : go("REC-01"))}
         />
       )}
       <K.QuickAction
@@ -131,11 +133,14 @@ function resumenInsumos(receta, disponibilidad) {
   return { listos: Math.max(0, total - faltantes), total, tieneDisponibilidad };
 }
 
-function TarjetaPlatoHoy({ receta, disponibilidad, comida, porciones, hayPlan, preparado, onVerDetalle }) {
+function TarjetaPlatoHoy({ receta, disponibilidad, comida, porciones, hayPlan, esManana, preparado, onVerDetalle }) {
   const { listos, total, tieneDisponibilidad } = resumenInsumos(receta, disponibilidad);
   const todosListos = tieneDisponibilidad && total > 0 && listos === total;
-  const etiquetaEstado = hayPlan ? "Plato planeado hoy" : "Recomendado para hoy";
+  const etiquetaEstado = hayPlan
+    ? esManana ? "Plato planeado mañana" : "Plato planeado hoy"
+    : esManana ? "Recomendado para mañana" : "Recomendado para hoy";
   const textoDisponibilidad = tieneDisponibilidad && total ? `${listos} de ${total} insumos listos` : "Ingredientes por revisar";
+  const accion = hayPlan ? (esManana ? "Ver receta" : "Ver preparación") : "Planificar este plato";
 
   return (
     <View style={styles.platoCard}>
@@ -157,16 +162,16 @@ function TarjetaPlatoHoy({ receta, disponibilidad, comida, porciones, hayPlan, p
       <View style={styles.platoContenido}>
         <View style={styles.metaFila}>
           <Icon name="restaurant-outline" size={typography.sizes.caption} color={colors.muted} />
-          <Text style={styles.metaTexto}>{`${comida} · ${porciones || 1} porciones${preparado ? " · preparado" : ""}`}</Text>
+          <Text style={styles.metaTexto}>{`${esManana ? "Mañana · " : ""}${comida} · ${porciones || 1} porciones${preparado ? " · preparado" : ""}`}</Text>
         </View>
         <Button
-          label={hayPlan ? "Ver preparación" : "Planificar este plato"}
+          label={accion}
           iconName={hayPlan ? "restaurant-outline" : "calendar-outline"}
           variant={hayPlan ? "outline" : "primary"}
           rounded
           full
           onPress={onVerDetalle}
-          accessibilityLabel={`${hayPlan ? "Ver preparación de" : "Planificar"} ${receta.nombre}`}
+          accessibilityLabel={`${accion} ${receta.nombre}`}
           accessibilityHint="Abre el detalle de la receta"
         />
       </View>

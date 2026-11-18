@@ -3,7 +3,7 @@ import { View, StyleSheet } from "react-native";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import * as K from "../components/kit";
-import { go } from "../lib/nav";
+import { go, replaceTo } from "../lib/nav";
 import { spacing } from "../tokens";
 import useApi from "../hooks/useApi";
 import { getPreparar, getDespensa, descontarAlCocinar, actualizarPlan } from "../lib/api";
@@ -109,7 +109,7 @@ export default function PRE_01({ receta }) {
         setGuardo(false);
         return;
       }
-      go("PLA-09");
+      replaceTo("INI-01");
     } catch (_e) {
       const mensaje = hecho
         ? "Se descontaron los ingredientes, pero no se pudo marcar el plato como preparado. Inténtalo de nuevo; no se descontarán dos veces."

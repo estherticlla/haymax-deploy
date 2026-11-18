@@ -182,6 +182,14 @@ function recomendadaParaHoy(recetas, disponibilidad, despensa) {
   return empatadas[Math.floor(Math.random() * empatadas.length)];
 }
 
+const ORDEN_COMIDAS = { desayuno: 0, almuerzo: 1, cena: 2 };
+
+function siguientePlanPendiente(planes, fecha) {
+  return (planes || [])
+    .filter((plan) => String(plan.fecha || "").slice(0, 10) === fecha && !(plan.completado || plan.cocinado))
+    .sort((a, b) => (ORDEN_COMIDAS[a.comida] ?? Number.MAX_SAFE_INTEGER) - (ORDEN_COMIDAS[b.comida] ?? Number.MAX_SAFE_INTEGER))[0] || null;
+}
+
 export async function getInicio() {
   const s = await leerSesion();
   const hoy = hoyInfo(s && s.distrito);
@@ -199,11 +207,12 @@ export async function getInicio() {
     rf("/recetas/disponibilidad").catch(() => []),
   ]);
   const rs = recetas.map(aReceta);
-  // El plato "de hoy" se identifica por la FECHA (no solo por el nombre del día:
-  // "lunes" de otra semana no es hoy) y se prefiere el que aún no se preparó.
+  // Se muestra la siguiente comida pendiente del día en orden cronológico. Si
+  // no queda ninguna, Inicio adelanta la vista a mañana.
   const fechaHoy = hoyIso();
-  const delDia = planes.filter((p) => String(p.fecha || "").slice(0, 10) === fechaHoy);
-  const planP = delDia.find((p) => !p.completado) || delDia[0] || null;
+  const planHoy = siguientePlanPendiente(planes, fechaHoy);
+  const fechaObjetivo = planHoy ? fechaHoy : sumarDiasIso(fechaHoy, 1);
+  const planP = planHoy || siguientePlanPendiente(planes, fechaObjetivo);
   const plan = planP ? aPlan(planP, rs) : null;
   const shopList = compras.map((c) => ({ ...c, listo: !!c.listo }));
   const pantry = despensa.map(aInsumo);
@@ -220,6 +229,8 @@ export async function getInicio() {
     recetaHoy: plan ? plan.receta : sugerida || rs[0] || null,
     sugerida,
     disponibilidadHoy: plan ? disponibilidadPorId.get(String(plan.recetaId)) || null : sugerida || null,
+    fechaObjetivo,
+    esManana: fechaObjetivo !== fechaHoy,
     stats: { ...D.pantryStats(pantry), porVencer: vencimientos.porVencer, vencidos: vencimientos.vencidos },
     shop: D.shoppingProgress(shopList),
     balance: D.balanceSemanal(),
