@@ -147,7 +147,7 @@ function buscarEnCasa(ing, casa) {
 // Cuánto de un ingrediente está cubierto (0..1) según la despensa.
 function evaluarIngrediente(ing, casa) {
   const enCasa = buscarEnCasa(ing, casa);
-  if (!enCasa) return { cubierto: 0, falta: textoIngrediente(ing) };
+  if (!enCasa || Number(enCasa.cantidad) <= 0) return { cubierto: 0, falta: textoIngrediente(ing) };
 
   const req = aBase(ing.cantidad, ing.unidad_medida);
   const disp = aBase(enCasa.cantidad, enCasa.unidad_medida);

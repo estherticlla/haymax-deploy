@@ -24,13 +24,15 @@ export const colors = {
   dark: "#2B2B2B",
 };
 
-export const spacing = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
+export const spacing = { xs: 4, headerIconGap: 6, sm: 8, md: 16, headerHorizontal: 20, lg: 24, xl: 32 };
 
-export const radius = { sm: 8, md: 12, lg: 16, pill: 999 };
+export const radius = { sm: 8, md: 12, lg: 16, header: 20, pill: 999 };
+
+export const borders = { thin: 1 };
 
 export const typography = {
-  sizes: { caption: 12, small: 12, body: 13, label: 15, subtitle: 16, title: 22, hero: 34 },
-  lineHeights: { tight: 1.15, normal: 1.35 },
+  sizes: { caption: 12, small: 12, body: 13, headerSub: 14, label: 15, subtitle: 16, title: 22, header: 28, hero: 34 },
+  lineHeights: { tight: 1.15, normal: 1.35, header: 34 },
   weights: { regular: "400", medium: "500", semibold: "600", bold: "700" },
 };
 
@@ -66,4 +68,4 @@ export const shadows = {
   },
 };
 
-export default { colors, spacing, radius, typography, layout, shadows };
+export default { colors, spacing, radius, borders, typography, layout, shadows };

@@ -1,13 +1,22 @@
 import { useState } from "react";
-import { View, StyleSheet } from "react-native";
+import { Alert, View, StyleSheet } from "react-native";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import * as K from "../components/kit";
-import { go } from "../lib/nav";
+import { go, replaceTo } from "../lib/nav";
 import { colors } from "../tokens";
 import { anunciar } from "../lib/a11y";
 import useApi from "../hooks/useApi";
-import { getRecetaDetalle, getPlanSemanaDe, agregarFavorito, quitarFavorito } from "../lib/api";
+import {
+  getRecetaDetalle,
+  getPlanSemanaDe,
+  agregarFavorito,
+  quitarFavorito,
+  actualizarPlan,
+  enviarFaltantesALista,
+  getPlanesEntre,
+  planificarPlato,
+} from "../lib/api";
 import { hoyIso, lunesDeIso } from "../lib/fechas";
 import { norm, precioPorPorcion, ahorroPorPorcion, soles, dificultadTexto } from "../lib/domain";
 
@@ -21,6 +30,9 @@ export default function REC_02({ receta, fecha, comida, planId }) {
   });
   const [favLocal, setFavLocal] = useState(null);
   const [errorFavorito, setErrorFavorito] = useState("");
+  const [guardandoPlan, setGuardandoPlan] = useState(false);
+  const [errorPlan, setErrorPlan] = useState("");
+  const [planificadoLocal, setPlanificadoLocal] = useState(false);
 
   if (loading) {
     return (
@@ -38,7 +50,7 @@ export default function REC_02({ receta, fecha, comida, planId }) {
   }
 
   const r = data.receta;
-  const estaPlanificado = data.planActual.some((plan) => String(plan.recetaId) === String(r.id));
+  const estaPlanificado = planificadoLocal || data.planActual.some((plan) => String(plan.recetaId) === String(r.id));
   const favorito = favLocal == null ? !!r.esFavorito : favLocal;
   const faltantes = (data.disponibilidad && data.disponibilidad.faltantes) || [];
   const faltaIngrediente = (nombre) => faltantes.some((f) => norm(f).includes(norm(nombre)));
@@ -72,6 +84,60 @@ export default function REC_02({ receta, fecha, comida, planId }) {
       const mensaje = "No pudimos actualizar tus favoritos. Inténtalo de nuevo.";
       setErrorFavorito(mensaje);
       anunciar(mensaje);
+    }
+  };
+
+  const planificarYAgregarFaltantes = async () => {
+    if (guardandoPlan) return;
+    const fechaPlan = fecha || hoyIso();
+    const comidaPlan = comida || "almuerzo";
+    let planGuardado = false;
+    setGuardandoPlan(true);
+    setErrorPlan("");
+
+    try {
+      let idPlan = planId;
+      if (!idPlan) {
+        const planesDelDia = await getPlanesEntre(fechaPlan, fechaPlan);
+        const planExistente = (planesDelDia || []).find((plan) => plan.comida === comidaPlan);
+        idPlan = planExistente && planExistente.id;
+      }
+
+      if (idPlan) {
+        await actualizarPlan(idPlan, {
+          recetaId: r.id,
+          fecha: fechaPlan,
+          comida: comidaPlan,
+          porciones: r.porciones,
+        });
+      } else {
+        await planificarPlato({
+          recetaId: r.id,
+          fecha: fechaPlan,
+          comida: comidaPlan,
+          porciones: r.porciones,
+        });
+      }
+
+      planGuardado = true;
+      await enviarFaltantesALista(faltantes);
+      setPlanificadoLocal(true);
+      recargar();
+
+      const mensaje = faltantes.length
+        ? "Plato planificado. Se agregaron los faltantes a tu lista de compras."
+        : "Plato planificado. No tienes faltantes por agregar a tu lista de compras.";
+      anunciar(mensaje);
+      Alert.alert("Planificación lista", mensaje);
+      replaceTo("PLA-09", { fecha: fechaPlan, comida: comidaPlan });
+    } catch (e) {
+      const mensaje = planGuardado
+        ? "El plato se planificó, pero no se pudieron agregar los faltantes a tu lista de compras. Inténtalo nuevamente."
+        : (e && e.message) || "No se pudo planificar el plato y actualizar tu lista de compras.";
+      setErrorPlan(mensaje);
+      anunciar(mensaje);
+    } finally {
+      setGuardandoPlan(false);
     }
   };
 
@@ -117,14 +183,6 @@ export default function REC_02({ receta, fecha, comida, planId }) {
         })}
       </View>
 
-      {faltantes.length > 0 ? (
-        <K.LinkText
-          label="Agregar faltantes a mi lista de compras"
-          align="CENTER"
-          onPress={() => go("PLA-09", { fecha, comida })}
-        />
-      ) : null}
-
       <K.SectionTitle title="Preparación" />
       {pasos.length > 0 ? (
         pasos.map((paso, indice) => <K.TextLine key={`${indice}-${paso}`} text={`${indice + 1}. ${paso}`} />)
@@ -137,18 +195,14 @@ export default function REC_02({ receta, fecha, comida, planId }) {
         sub={`${r.calorias > 0 ? `${r.calorias} kcal por porción` : "Información nutricional no disponible"} · rinde ${r.porciones} porciones · ${faltantes.length === 0 ? "todo disponible" : `faltan ${faltantes.length} insumos`}`}
       />
 
+      {errorPlan ? <K.Banner title={errorPlan} tone="RED" /> : null}
       {!estaPlanificado ? (
         <Button
           label="Planificar este plato"
           full
-          onPress={() =>
-            go("PLA-07", {
-              receta: r.id,
-              fecha: fecha || hoyIso(),
-              comida: comida || "almuerzo",
-              planId,
-            })
-          }
+          disabled={guardandoPlan}
+          loading={guardandoPlan}
+          onPress={planificarYAgregarFaltantes}
         />
       ) : null}
       <Button label="Cocinar ahora" variant="outline" full onPress={() => go("PRE-01", { receta: r.id })} />

@@ -251,6 +251,11 @@ router.put("/:id", asyncHandler(async (req, res) => {
   if (!cambios.length) return res.status(400).json({ error: "envía al menos un campo para actualizar" });
 
   const hogarId = await hogarDe(req.user.id);
+  if (Object.hasOwn(p, "cantidad") && Number(p.cantidad) <= 0) {
+    const eliminado = await q.run("DELETE FROM despensa WHERE id = ? AND hogar_id = ?", id, hogarId);
+    if (!eliminado.changes) return res.status(404).json({ error: "producto no encontrado" });
+    return res.status(204).end();
+  }
   valores.push(id, hogarId);
   const r = await q.run(
     `UPDATE despensa SET ${cambios.join(", ")}, actualizado_en = CURRENT_TIMESTAMP WHERE id = ? AND hogar_id = ?`,

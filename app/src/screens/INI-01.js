@@ -49,7 +49,7 @@ export default function INI_01() {
         title="Ingredientes faltantes"
         sub={`${shop.listos} de ${shop.total} ingredientes listos`}
         right="Ver"
-        onPress={() => go("PLA-09")}
+        onPress={() => go("COM-01")}
       />
 
       <K.SectionTitle title="Acciones rápidas" />

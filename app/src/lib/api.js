@@ -614,14 +614,28 @@ async function descontarReales(descuentos) {
           method: "PUT",
           body: { cantidad: nuevos[i].cantidad },
         });
-        aplicados.push({ id: items[i].id, antes: items[i].cantidad });
+        aplicados.push({ item: items[i], eliminado: Number(nuevos[i].cantidad) <= 0 });
       }
     }
   } catch (_e) {
     let revertido = true;
     for (const a of aplicados.reverse()) {
       try {
-        await rf("/despensa/" + a.id, { method: "PUT", body: { cantidad: a.antes } });
+        if (a.eliminado) {
+          await rf("/despensa", {
+            method: "POST",
+            body: {
+              nombre: a.item.nombre,
+              categoria: a.item.categoria,
+              cantidad: a.item.cantidad,
+              unidad: a.item.unidad,
+              fecha_vencimiento: a.item.fecha_vencimiento || a.item.fechaVencimiento,
+              ubicacion: a.item.ubicacion,
+            },
+          });
+        } else {
+          await rf("/despensa/" + a.item.id, { method: "PUT", body: { cantidad: a.item.cantidad } });
+        }
       } catch (_e2) {
         revertido = false;
       }

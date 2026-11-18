@@ -38,37 +38,44 @@ export function Greet({ title, sub }) {
 }
 
 // Cabecera cálida de bienvenida: avatar + iconos + saludo (a sangre completa).
-export function Header({ iniciales = "R", title, sub, alertas }) {
+export function Header({ iniciales = "R", title, sub, subIcon, alertas, showTop = true }) {
   return (
     <View style={styles.header}>
-      <View style={styles.headerTop}>
-        <View style={styles.avatar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
-          <Text style={styles.avatarText}>{iniciales}</Text>
+      {showTop ? (
+        <View style={styles.headerTop}>
+          <View style={styles.avatar} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
+            <Text style={styles.avatarText}>{iniciales}</Text>
+          </View>
+          <View style={styles.headerIcons}>
+            <Pressable
+              onPress={() => go("PRE-03")}
+              accessibilityRole="button"
+              accessibilityLabel={
+                alertas > 0
+                  ? `Alertas de vencimiento: ${alertas} ${alertas === 1 ? "insumo requiere" : "insumos requieren"} atención`
+                  : "Alertas de vencimiento"
+              }
+              accessibilityState={{ disabled: false }}
+              style={(s) => [styles.headerBtn, s.pressed && styles.pressed, focoVisible(s)]}
+            >
+              <Icon name="notifications-outline" size={22} color={colors.primaryDark} />
+              {alertas > 0 ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{alertas}</Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <HelpButton />
+          </View>
         </View>
-        <View style={styles.headerIcons}>
-          <Pressable
-            onPress={() => go("PRE-03")}
-            accessibilityRole="button"
-            accessibilityLabel={
-              alertas > 0
-                ? `Alertas de vencimiento: ${alertas} ${alertas === 1 ? "insumo requiere" : "insumos requieren"} atención`
-                : "Alertas de vencimiento"
-            }
-            accessibilityState={{ disabled: false }}
-            style={(s) => [styles.headerBtn, s.pressed && styles.pressed, focoVisible(s)]}
-          >
-            <Icon name="notifications-outline" size={22} color={colors.primaryDark} />
-            {alertas > 0 ? (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{alertas}</Text>
-              </View>
-            ) : null}
-          </Pressable>
-          <HelpButton />
-        </View>
-      </View>
+      ) : null}
       <Text style={styles.headerTitle} accessibilityRole="header">{title}</Text>
-      {sub ? <Text style={styles.headerSub}>{sub}</Text> : null}
+      {sub ? (
+        <View style={styles.headerSubRow}>
+          {subIcon ? <Icon name={subIcon} size={typography.sizes.headerSub} color={colors.primaryDark} style={styles.headerSubIcon} /> : null}
+          <Text style={styles.headerSub}>{sub}</Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -734,11 +741,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     marginHorizontal: -spacing.md,
     marginTop: -spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    paddingHorizontal: spacing.headerHorizontal,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+    borderBottomLeftRadius: radius.header,
+    borderBottomRightRadius: radius.header,
     marginBottom: 4,
   },
   headerTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
@@ -748,8 +755,10 @@ const styles = StyleSheet.create({
   headerBtn: { minWidth: MIN_TARGET, minHeight: MIN_TARGET, alignItems: "center", justifyContent: "center" },
   badge: { position: "absolute", top: 2, right: 0, minWidth: 18, height: 18, borderRadius: 9, backgroundColor: colors.red, alignItems: "center", justifyContent: "center", paddingHorizontal: 4 },
   badgeText: { fontSize: 11, fontWeight: typography.weights.bold, color: colors.white },
-  headerTitle: { fontSize: 26, fontWeight: typography.weights.bold, color: colors.text, lineHeight: 31 },
-  headerSub: { fontSize: typography.sizes.body, color: colors.sub, marginTop: 4 },
+  headerTitle: { fontSize: typography.sizes.header, fontWeight: typography.weights.bold, color: colors.text, lineHeight: typography.lineHeights.header },
+  headerSubRow: { flexDirection: "row", alignItems: "center", marginTop: spacing.xs },
+  headerSubIcon: { marginRight: spacing.headerIconGap },
+  headerSub: { fontSize: typography.sizes.headerSub, color: colors.sub },
 
   secRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginTop: spacing.sm, marginBottom: 6 },
   secTitle: { fontSize: typography.sizes.subtitle, fontWeight: typography.weights.bold, color: colors.text, flex: 1 },

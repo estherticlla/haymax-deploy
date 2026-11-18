@@ -66,3 +66,9 @@ test("coincideNombre ignora acentos y mayúsculas", () => {
   assert.equal(D.coincideNombre("Ají amarillo", "aji AMARILLO"), true);
   assert.equal(D.coincideNombre("Lomo fino", "Pollo"), false);
 });
+
+test("un insumo con cantidad cero se considera faltante", () => {
+  const pantry = [{ nombre: "Cebolla", cantidad: 0, unidad: "und" }];
+  assert.equal(D.ingredienteCubierto("Cebolla", pantry), false);
+  assert.deepEqual(D.faltantes({ ingredientes: ["Cebolla"] }, pantry), ["Cebolla"]);
+});

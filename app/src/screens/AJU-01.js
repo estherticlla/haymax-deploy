@@ -87,7 +87,14 @@ export default function AJU_01() {
 
   return (
     <Screen id="AJU-01" name={NOMBRE}>
-      <Text style={styles.pageTitle} accessibilityRole="header">Ajustes</Text>
+      <K.Header
+        iniciales="A"
+        title="Ajustes"
+        sub="Personaliza tu experiencia"
+        subIcon="settings-outline"
+        alertas={0}
+        showTop={false}
+      />
       <Text style={styles.section} accessibilityRole="header">Mi cuenta</Text>
       <SettingRow
         icon="person-outline"
@@ -194,12 +201,6 @@ function SettingRow({ icon, label, value, valueColor, onPress, disabled, hint, t
 }
 
 const styles = StyleSheet.create({
-  pageTitle: {
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    color: colors.text,
-    marginBottom: spacing.sm,
-  },
   section: {
     fontSize: typography.sizes.caption,
     letterSpacing: 1,

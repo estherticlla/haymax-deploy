@@ -22,6 +22,7 @@ export function ingredienteCubierto(ingrediente, pantry = pantryMock) {
   const ing = norm(ingrediente);
   const iw = words(ingrediente);
   return pantry.some((p) => {
+    if (Number(p.cantidad) <= 0) return false;
     const n = norm(p.nombre);
     if (n.length < 3) return false;
     const pw = words(p.nombre);

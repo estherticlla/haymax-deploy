@@ -28,7 +28,7 @@ router.get("/", asyncHandler(async (req, res) => {
   const hogarId = await hogarDe(req.user.id);
   const [rows, despensa] = await Promise.all([
     q.all("SELECT * FROM compras WHERE hogar_id = ? ORDER BY seccion, comprado, nombre", hogarId),
-    q.all("SELECT nombre FROM despensa WHERE hogar_id = ?", hogarId),
+    q.all("SELECT nombre FROM despensa WHERE hogar_id = ? AND cantidad > 0", hogarId),
   ]);
   const enCasa = new Set(despensa.map((item) => norm(item.nombre)));
   res.json(rows.filter((item) => !enCasa.has(norm(item.nombre))).map(aCompra));
@@ -70,7 +70,7 @@ router.post("/generar", asyncHandler(async (req, res) => {
     hasta
   );
   const enCasa = new Set(
-    (await q.all("SELECT nombre FROM despensa WHERE hogar_id = ?", hogarId)).map((d) => norm(d.nombre))
+    (await q.all("SELECT nombre FROM despensa WHERE hogar_id = ? AND cantidad > 0", hogarId)).map((d) => norm(d.nombre))
   );
   const existentes = new Set(
     (await q.all("SELECT nombre FROM compras WHERE hogar_id = ?", hogarId)).map((c) => norm(c.nombre))

@@ -1,6 +1,7 @@
 import { Pressable, Text, StyleSheet, ActivityIndicator, View } from "react-native";
-import { colors, radius, spacing, typography } from "../tokens";
+import { borders, colors, radius, spacing, typography } from "../tokens";
 import { focoVisible } from "../lib/a11y";
+import Icon from "./Icon";
 
 // Variantes usadas en el prototipo: primary | outline | ghost | danger
 // Accesibilidad: rol "button", estado disabled/busy, etiqueta explícita opcional
@@ -15,10 +16,16 @@ export default function Button({
   full = false,
   compact = false,
   icon,
+  iconName,
+  iconColor,
+  iconPosition = "left",
+  rounded = false,
   accessibilityLabel,
   accessibilityHint,
 }) {
   const isDisabled = disabled || loading;
+  const colorIcono = iconColor || (variant === "primary" ? colors.white : colors.primary);
+  const iconoVectorial = iconName ? <Icon name={iconName} size={typography.sizes.subtitle} color={colorIcono} /> : null;
   return (
     <Pressable
       onPress={onPress}
@@ -30,6 +37,7 @@ export default function Button({
       style={(state) => [
         styles.base,
         compact && styles.compact,
+        rounded && styles.rounded,
         styles[variant],
         full && styles.full,
         state.pressed && !isDisabled && styles.pressed,
@@ -51,7 +59,9 @@ export default function Button({
                 {icon}
               </Text>
             ) : null}
+            {iconPosition !== "right" ? iconoVectorial : null}
             <Text style={[styles.label, styles[variant + "Text"]]}>{label}</Text>
+            {iconPosition === "right" ? iconoVectorial : null}
           </>
         )}
       </View>
@@ -69,6 +79,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   compact: { paddingHorizontal: spacing.sm },
+  rounded: { borderRadius: radius.pill },
   content: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: spacing.sm },
   full: { alignSelf: "stretch" },
   pressed: { opacity: 0.85 },
@@ -77,7 +88,7 @@ const styles = StyleSheet.create({
   icon: { fontSize: typography.sizes.label },
   primary: { backgroundColor: colors.primary },
   primaryText: { color: colors.white },
-  outline: { backgroundColor: colors.white, borderWidth: 1.5, borderColor: colors.borderStrong },
+  outline: { backgroundColor: colors.white, borderWidth: borders.thin, borderColor: colors.borderStrong },
   outlineText: { color: colors.primary },
   ghost: { backgroundColor: colors.greyBg },
   ghostText: { color: colors.text },

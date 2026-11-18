@@ -53,7 +53,12 @@ export default function COM_01() {
     }
     try {
       const [compras, despensa] = await Promise.all([getCompras(), getDespensa()]);
-      const nombresEnCasa = new Set(despensa.items.map((it) => norm(it.nombre)).filter(Boolean));
+      const nombresEnCasa = new Set(
+        despensa.items
+          .filter((it) => Number(it.cantidad) > 0)
+          .map((it) => norm(it.nombre))
+          .filter(Boolean)
+      );
       const items = compras.items.filter((it) => !nombresEnCasa.has(norm(it.nombre)));
       const listos = items.filter((it) => it.listo).length;
       const total = items.length;

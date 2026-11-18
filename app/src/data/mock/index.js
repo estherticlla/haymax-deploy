@@ -165,7 +165,8 @@ function aplicar(label, qty, unit) {
   const p = pantryMock[i];
   if (bucket(p.unidad) !== bucket(unit)) return;
   const nueva = Math.max(0, Number(p.cantidad) - Number(qty));
-  pantryMock.splice(i, 1, { ...p, cantidad: nueva });
+  if (nueva <= 0) pantryMock.splice(i, 1);
+  else pantryMock.splice(i, 1, { ...p, cantidad: nueva });
 }
 
 export function descontarDespensa(items) {

@@ -39,9 +39,11 @@ export default function DES_01() {
   const [cat, setCat] = useState("Todos");
   const { data, loading, error, recargar } = useApi(async () => {
     const [despensa, preferencias] = await Promise.all([getDespensa(), leerPreferencias()]);
-    const vencimientos = resumenVencimientos(despensa.items, preferencias.diasAvisoVencimiento);
+    const items = despensa.items.filter((item) => Number(item.cantidad) > 0);
+    const vencimientos = resumenVencimientos(items, preferencias.diasAvisoVencimiento);
     return {
       ...despensa,
+      items,
       alertas: vencimientos.total,
       diasAviso: Number(preferencias.diasAvisoVencimiento) === 1 ? 1 : 2,
       stats: { ...despensa.stats, porVencer: vencimientos.porVencer, vencidos: vencimientos.vencidos },
@@ -78,7 +80,14 @@ const { items } = data;
 
   return (
     <Screen id="DES-01" name={NOMBRE}>
-      <Text style={styles.pageTitle} accessibilityRole="header">Mi despensa</Text>
+      <K.Header
+        iniciales="D"
+        title="Mi Despensa"
+        sub="Administra tus insumos"
+        subIcon="cube-outline"
+        alertas={alertas}
+        showTop={false}
+      />
     <K.InputField
         label="Buscar insumo"
         placeholder="Ej. pollo, tomate…"
@@ -173,11 +182,6 @@ function InsumoRow({ insumo, diasAviso, onPress }) {
 }
 
 const styles = StyleSheet.create({
-  pageTitle: {
-    fontSize: typography.sizes.title,
-    fontWeight: typography.weights.bold,
-    color: colors.text,
-  },
   hint: {
     fontSize: typography.sizes.small,
     color: colors.muted,

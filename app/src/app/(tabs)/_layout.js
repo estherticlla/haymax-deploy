@@ -121,9 +121,9 @@ export default function TabsLayout() {
       screenOptions={{ headerShown: false }}
     >
       <Tabs.Screen name="index" options={{ title: "Inicio" }} />
-      <Tabs.Screen name="despensa" options={{ title: "Despensa" }} />
-      <Tabs.Screen name="planificar" options={{ title: "Planificar" }} />
-      <Tabs.Screen name="ajustes" options={{ title: "Ajustes" }} />
+      <Tabs.Screen name="despensa" options={{ title: "Despensa", headerShown: false }} />
+      <Tabs.Screen name="planificar" options={{ title: "Planificar", headerShown: false }} />
+      <Tabs.Screen name="ajustes" options={{ title: "Ajustes", headerShown: false }} />
       {/* Pantallas apiladas: nunca se muestran como elementos del menú inferior. */}
       <Tabs.Screen name="screen/[id]" options={{ href: null, title: "" }} />
     </Tabs>

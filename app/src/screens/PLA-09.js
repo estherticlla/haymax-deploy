@@ -7,8 +7,8 @@ import Icon from "../components/Icon";
 import * as K from "../components/kit";
 import { go } from "../lib/nav";
 import { colors, layout, radius, spacing, typography, shadows } from "../tokens";
-import { focoVisible } from "../lib/a11y";
-import { getPlanSemanaDe, eliminarPlan, getMotor } from "../lib/api";
+import { anunciar, focoVisible } from "../lib/a11y";
+import { getPlanSemanaDe, eliminarPlan, getMotor, actualizarPlan, planificarPlato } from "../lib/api";
 import { ingredienteAlcanza, soles } from "../lib/domain";
 import { resolverImagen } from "../lib/imagenes";
 import { leerPreferencias, filtrarRecetasPorPreferencias } from "../lib/preferencias";
@@ -58,10 +58,6 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
   const [cargandoRecetas, setCargandoRecetas] = useState(true);
   const [errorRecetas, setErrorRecetas] = useState("");
   const lunes = sumarDiasIso(lunesBase, offsetSemana * 7);
-
-  useEffect(() => {
-    setComidaActiva(comidaSeleccionable(comidaInicial));
-  }, [comidaInicial]);
 
   useEffect(() => {
     let activo = true;
@@ -150,6 +146,36 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
     }
   };
 
+  const seleccionarReceta = async (receta) => {
+    if (ocupado) return;
+    const yaPlanificado = !!filaSeleccionada;
+    setOcupado(true);
+    setAviso("");
+    try {
+      if (filaSeleccionada) {
+        await actualizarPlan(filaSeleccionada.id, {
+          recetaId: receta.id,
+          fecha: diaSel,
+          comida: comidaActiva,
+          porciones: filaSeleccionada.porciones,
+        });
+      } else {
+        await planificarPlato({
+          recetaId: receta.id,
+          fecha: diaSel,
+          comida: comidaActiva,
+          porciones: receta.porciones || 1,
+        });
+      }
+      recargar();
+      anunciar(yaPlanificado ? `${receta.nombre} reemplazó el plato seleccionado.` : `${receta.nombre} se agregó a tu plan.`);
+    } catch (e) {
+      setAviso((e && e.message) || (yaPlanificado ? "No se pudo cambiar el platillo." : "No se pudo planificar el platillo."));
+    } finally {
+      setOcupado(false);
+    }
+  };
+
   const moverSemana = (d) => {
     setOffsetSemana((o) => o + d);
     setSel(sumarDiasIso(lunes, d * 7));
@@ -157,13 +183,12 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
 
   return (
     <Screen id="PLA-09" name={NOMBRE}>
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>Plan de la semana</Text>
-        <View style={styles.headerSub}>
-          <Icon name="calendar-outline" size={13} color={colors.primary} />
-          <Text style={styles.headerSubText}>{`${etiquetaSemana(lunes, finSemana)} · Semana ${semanaNumero(lunes)}`}</Text>
-        </View>
-      </View>
+      <K.Header
+        title="Plan de la semana"
+        sub={`${etiquetaSemana(lunes, finSemana)} · Semana ${semanaNumero(lunes)}`}
+        subIcon="calendar-outline"
+        showTop={false}
+      />
 
       <View style={styles.selRow}>
         <Text style={styles.selLabel}>SELECCIONA EL DÍA</Text>
@@ -234,7 +259,10 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
             cobertura={receta.cobertura}
             disponible={receta.disponible}
             precio={receta.precio}
-            onPress={() => go("REC-02", {
+            yaPlanificado={!!filaSeleccionada}
+            ocupado={ocupado}
+            onElegir={() => seleccionarReceta(receta)}
+            onVerDetalle={() => go("REC-02", {
               receta: receta.id,
               fecha: diaSel,
               comida: comidaActiva,
@@ -281,59 +309,66 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
         accessibilityRole="button"
         accessibilityLabel={`${r.nombre}. Ver receta`}
         accessibilityState={{ disabled: false }}
-        style={({ pressed }) => [styles.fotoWrap, pressed && styles.pressOn]}
+        style={(state) => [styles.planDetalleTappable, state.pressed && styles.pressOn, focoVisible(state)]}
       >
-        {fuente ? (
-          <ExpoImage source={fuente} style={styles.foto} contentFit="cover" transition={150} cachePolicy="memory-disk" />
-        ) : (
-          <View style={[styles.foto, styles.fotoPh]}>
-            <Icon name="restaurant-outline" size={38} color={colors.primary} />
+        <View style={styles.fotoWrap}>
+          {fuente ? (
+            <ExpoImage source={fuente} style={styles.foto} contentFit="cover" transition={150} cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.foto, styles.fotoPh]}>
+              <Icon name="restaurant-outline" size={38} color={colors.primary} />
+            </View>
+          )}
+          {r.precio ? (
+            <View style={styles.pillPrecio}>
+              <Text style={styles.pillPrecioText}>{`${soles(r.precio)} total`}</Text>
+            </View>
+          ) : null}
+          <View style={styles.seleccionadoBadge}>
+            <Icon name="checkmark-circle" size={typography.sizes.subtitle} color={colors.green} />
+            <Text style={styles.seleccionadoText}>Seleccionado</Text>
           </View>
-        )}
-        {r.precio ? (
-          <View style={styles.pillPrecio}>
-            <Text style={styles.pillPrecioText}>{`${soles(r.precio)} total`}</Text>
+          <View style={styles.pillEstado}>
+            <Icon name={listos > 0 ? "checkmark" : "alert-circle-outline"} size={12} color={listos > 0 ? colors.green : colors.amber} />
+            <Text style={[styles.pillEstadoText, listos === 0 && { color: colors.amber }]}>
+              {listos === 0 ? "Ningún insumo en casa" : listos === total ? "Todos los insumos disponibles" : `${listos} de ${total} insumos listos`}
+            </Text>
+          </View>
+        </View>
+
+        <Text style={styles.titulo}>{r.nombre}</Text>
+        <View style={styles.metaFila}>
+          <Icon name="restaurant-outline" size={13} color={colors.muted} />
+          <Text style={styles.meta}>{`${fila.porciones} porciones`}</Text>
+        </View>
+        {v.faltantes.length > 0 ? (
+          <View style={styles.metaFila}>
+            <Icon name="alert-circle-outline" size={13} color={colors.amber} />
+            <Text style={[styles.meta, styles.metaFalta]}>
+              {`Falta: ${v.faltantes.slice(0, 3).join(", ")}${v.faltantes.length > 3 ? "…" : ""}`}
+            </Text>
           </View>
         ) : null}
-        <View style={styles.pillEstado}>
-          <Icon name={listos > 0 ? "checkmark" : "alert-circle-outline"} size={12} color={listos > 0 ? colors.green : colors.amber} />
-          <Text style={[styles.pillEstadoText, listos === 0 && { color: colors.amber }]}>
-            {listos === 0 ? "Ningún insumo en casa" : listos === total ? "Todos los insumos disponibles" : `${listos} de ${total} insumos listos`}
-          </Text>
-        </View>
       </Pressable>
 
-      <Text style={styles.titulo} onPress={() => go("REC-02", { receta: r.id, fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })}>
-        {r.nombre}
-      </Text>
-      <View style={styles.metaFila}>
-        <Icon name="restaurant-outline" size={13} color={colors.muted} />
-        <Text style={styles.meta}>{`${fila.porciones} porciones`}</Text>
-      </View>
-      {v.faltantes.length > 0 ? (
-        <View style={styles.metaFila}>
-          <Icon name="alert-circle-outline" size={13} color={colors.amber} />
-          <Text style={[styles.meta, styles.metaFalta]}>
-            {`Falta: ${v.faltantes.slice(0, 3).join(", ")}${v.faltantes.length > 3 ? "…" : ""}`}
-          </Text>
-        </View>
-      ) : null}
-
-      <View style={styles.accionRow}>
-        <View style={styles.accionBtn}>
-          <Button label="⇄  Cambiar plato" variant="outline" onPress={() => go("PLA-06", { fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })} />
-        </View>
-        <Pressable onPress={() => quitar(fila.id)} disabled={ocupado} accessibilityRole="button" accessibilityLabel={`Quitar ${r.nombre} del plan`} accessibilityState={{ disabled: ocupado }} hitSlop={8} style={({ pressed }) => [pressed && styles.pressOn, styles.basuraWrap]}>
-          <View style={styles.basura}>
-            <Icon name="trash-outline" size={18} color={colors.red} />
-          </View>
-        </Pressable>
-      </View>
+      <Button
+        label="Eliminar de planificación"
+        iconName="trash-outline"
+        iconColor={colors.red}
+        iconPosition="right"
+        variant="outline"
+        rounded
+        full
+        disabled={ocupado}
+        loading={ocupado}
+        onPress={() => quitar(fila.id)}
+        accessibilityLabel={`Eliminar ${r.nombre} de la planificación`}
+      />
     </View>
   );
 }
 
-function TarjetaReceta({ imagen, titulo, tiempo, porciones, cobertura, disponible, precio, onPress }) {
+function TarjetaReceta({ imagen, titulo, tiempo, porciones, cobertura, disponible, precio, yaPlanificado, ocupado, onElegir, onVerDetalle }) {
   const fuente = resolverImagen(imagen);
   const todosListos = disponible || Number(cobertura) >= 100;
   const estado = todosListos
@@ -343,41 +378,56 @@ function TarjetaReceta({ imagen, titulo, tiempo, porciones, cobertura, disponibl
       : "Te faltan ingredientes";
 
   return (
-    <Pressable
-      onPress={onPress}
-      accessibilityRole="button"
-      accessibilityLabel={`${titulo}. Elegir este platillo`}
-      accessibilityHint="Abre el detalle para planificar esta receta"
-      accessibilityState={{ disabled: false }}
-      style={(state) => [styles.recetaTarjeta, state.pressed && styles.pressOn, focoVisible(state)]}
-    >
-      <View style={styles.recetaImagenWrap}>
-        {fuente ? (
-          <ExpoImage source={fuente} style={styles.recetaImagen} contentFit="cover" transition={150} cachePolicy="memory-disk" />
-        ) : (
-          <View style={[styles.recetaImagen, styles.fotoPh]}>
-            <Icon name="restaurant-outline" size={38} color={colors.primary} />
+    <View style={styles.recetaTarjeta}>
+      <Pressable
+        onPress={onVerDetalle}
+        accessibilityRole="button"
+        accessibilityLabel={`${titulo}. Ver detalles de la receta`}
+        accessibilityHint="Abre el detalle de esta receta"
+        accessibilityState={{ disabled: false }}
+        style={(state) => [state.pressed && styles.pressOn, focoVisible(state)]}
+      >
+        <View style={styles.recetaImagenWrap}>
+          {fuente ? (
+            <ExpoImage source={fuente} style={styles.recetaImagen} contentFit="cover" transition={150} cachePolicy="memory-disk" />
+          ) : (
+            <View style={[styles.recetaImagen, styles.fotoPh]}>
+              <Icon name="restaurant-outline" size={38} color={colors.primary} />
+            </View>
+          )}
+          <View style={styles.pillPrecio}>
+            <Text style={styles.pillPrecioText}>{`${soles(precio)} total`}</Text>
           </View>
-        )}
-        <View style={styles.pillPrecio}>
-          <Text style={styles.pillPrecioText}>{`${soles(precio)} total`}</Text>
+          <View style={[styles.pillEstado, { backgroundColor: todosListos ? colors.greenBg : colors.amberBg }]}>
+            <Icon name={todosListos ? "checkmark" : "alert-circle-outline"} size={12} color={todosListos ? colors.green : colors.amber} />
+            <Text style={[styles.pillEstadoText, { color: todosListos ? colors.green : colors.amber }]}>{estado}</Text>
+          </View>
         </View>
-        <View style={[styles.pillEstado, { backgroundColor: todosListos ? colors.greenBg : colors.amberBg }]}>
-          <Icon name={todosListos ? "checkmark" : "alert-circle-outline"} size={12} color={todosListos ? colors.green : colors.amber} />
-          <Text style={[styles.pillEstadoText, { color: todosListos ? colors.green : colors.amber }]}>{estado}</Text>
+        <View style={styles.recetaCuerpo}>
+          <Text style={styles.titulo}>{titulo}</Text>
+          <View style={styles.metaFila}>
+            <Icon name="time-outline" size={13} color={colors.muted} />
+            <Text style={styles.meta}>{`${tiempo} min`}</Text>
+            <Icon name="restaurant-outline" size={13} color={colors.muted} />
+            <Text style={styles.meta}>{`${porciones} porciones`}</Text>
+          </View>
         </View>
+      </Pressable>
+      <View style={[styles.recetaCuerpo, styles.recetaAccionCuerpo]}>
+        <Button
+          label={yaPlanificado ? "Cambiar a este platillo" : "Planificar este platillo"}
+          iconName={yaPlanificado ? "swap-horizontal" : "calendar-outline"}
+          variant="outline"
+          rounded
+          full
+          disabled={ocupado}
+          loading={ocupado}
+          onPress={onElegir}
+          accessibilityLabel={`${yaPlanificado ? "Cambiar a" : "Planificar"} ${titulo}`}
+          accessibilityHint={yaPlanificado ? "Reemplaza el plato seleccionado sin salir de esta pantalla" : "Agrega este plato al plan"}
+        />
       </View>
-      <View style={styles.recetaCuerpo}>
-        <Text style={styles.titulo}>{titulo}</Text>
-        <View style={styles.metaFila}>
-          <Icon name="time-outline" size={13} color={colors.muted} />
-          <Text style={styles.meta}>{`${tiempo} min`}</Text>
-          <Icon name="restaurant-outline" size={13} color={colors.muted} />
-          <Text style={styles.meta}>{`${porciones} porciones`}</Text>
-        </View>
-        <Text style={styles.recetaAccion}>Elegir este platillo →</Text>
-      </View>
-    </Pressable>
+    </View>
   );
 }
 
@@ -399,21 +449,6 @@ function Flecha({ icon, accessibilityLabel, onPress, disabled }) {
 
 const styles = StyleSheet.create({
   pressOn: { opacity: 0.85 },
-
-  header: {
-    backgroundColor: colors.primaryLight,
-    marginHorizontal: -spacing.md,
-    marginTop: -spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingTop: spacing.md,
-    paddingBottom: spacing.md,
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
-    marginBottom: 4,
-  },
-  headerTitle: { fontSize: 26, fontWeight: typography.weights.bold, color: colors.text, lineHeight: 31 },
-  headerSub: { flexDirection: "row", alignItems: "center", gap: 5, marginTop: 4 },
-  headerSubText: { fontSize: typography.sizes.body, color: colors.sub },
 
   selRow: {
     flexDirection: "row",
@@ -463,8 +498,9 @@ const styles = StyleSheet.create({
   recetaImagenWrap: { height: layout.emptyStateMinHeight, backgroundColor: colors.primaryLight },
   recetaImagen: { width: "100%", height: "100%" },
   recetaCuerpo: { padding: spacing.sm, gap: spacing.xs },
-  recetaAccion: { fontSize: typography.sizes.body, fontWeight: typography.weights.semibold, color: colors.primary },
+  recetaAccionCuerpo: { paddingTop: 0 },
   bloque: { gap: 6 },
+  planDetalleTappable: { gap: spacing.xs },
   fotoWrap: { height: 150, borderRadius: radius.md, overflow: "hidden", backgroundColor: colors.primaryLight },
   foto: { width: "100%", height: "100%" },
   fotoPh: { alignItems: "center", justifyContent: "center" },
@@ -478,6 +514,19 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
   },
   pillPrecioText: { fontSize: typography.sizes.small, fontWeight: typography.weights.semibold, color: colors.primary },
+  seleccionadoBadge: {
+    position: "absolute",
+    top: spacing.sm,
+    left: spacing.sm,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+    borderRadius: radius.pill,
+    backgroundColor: colors.greenBg,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+  },
+  seleccionadoText: { fontSize: typography.sizes.caption, fontWeight: typography.weights.semibold, color: colors.green },
   pillEstado: {
     position: "absolute",
     bottom: 8,
@@ -496,19 +545,5 @@ const styles = StyleSheet.create({
   metaFila: { flexDirection: "row", alignItems: "center", gap: 5, paddingHorizontal: 2 },
   meta: { flex: 1, fontSize: typography.sizes.small, color: colors.sub },
   metaFalta: { color: colors.amber },
-
-  accionRow: { flexDirection: "row", alignItems: "center", gap: spacing.sm },
-  accionBtn: { flex: 1 },
-  basuraWrap: { width: 44, height: 48, justifyContent: "center" },
-  basura: {
-    width: 44,
-    height: 48,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.borderStrong,
-    backgroundColor: colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-  },
 
 });
