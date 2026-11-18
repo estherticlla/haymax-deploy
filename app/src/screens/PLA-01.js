@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View, StyleSheet } from "react-native";
+import { router } from "expo-router";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import * as K from "../components/kit";
@@ -101,7 +102,7 @@ export default function PLA_01({ receta, plan: planId, porciones: porcGuardadas,
         title={r.nombre}
         sub={`${r.porciones} porciones · ${r.minutos} min`}
         right="Cambiar"
-        onPress={() => go("REC-02", { receta: r.id })}
+        onPress={() => router.push({ pathname: "/planificar/[id]", params: { id: String(r.id) } })}
       />
 
       <K.SectionTitle title="¿Para cuándo lo planeas?" />

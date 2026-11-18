@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useState } from "react";
 import { View, Text, Pressable, ScrollView, StyleSheet } from "react-native";
 import { Image as ExpoImage } from "expo-image";
+import { router } from "expo-router";
 import Screen from "../components/Screen";
 import Button from "../components/Button";
 import Icon from "../components/Icon";
 import * as K from "../components/kit";
-import { go } from "../lib/nav";
 import { colors, layout, radius, spacing, typography, shadows } from "../tokens";
 import { anunciar, focoVisible } from "../lib/a11y";
 import { getPlanSemanaDe, eliminarPlan, getMotor, actualizarPlan, planificarPlato } from "../lib/api";
@@ -37,6 +37,11 @@ function fechaAccesible(iso) {
 function comidaSeleccionable(valor) {
   const comida = Array.isArray(valor) ? valor[0] : valor;
   return COMIDAS.some((opcion) => opcion.comida === comida) ? comida : "almuerzo";
+}
+
+function imagenDe(receta) {
+  if (!receta) return null;
+  return receta.imagen || receta.imagen_url || receta.imagenUrl || receta.foto_url || receta.foto || null;
 }
 
 export default function PLA_09({ fecha, comida: comidaInicial }) {
@@ -132,6 +137,12 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
   const planesDia = datos.plan.filter((p) => p.fecha === diaSel);
   const comidaSeleccionada = COMIDAS.find((opcion) => opcion.comida === comidaActiva) || COMIDAS[0];
   const filaSeleccionada = planesDia.find((p) => p.comida === comidaActiva);
+  const recetaSeleccionadaId = filaSeleccionada
+    ? filaSeleccionada.recetaId ?? filaSeleccionada.receta_id ?? filaSeleccionada.receta?.id
+    : null;
+  const recomendaciones = recetaSeleccionadaId == null
+    ? recetas
+    : recetas.filter((receta) => String(receta.id) !== String(recetaSeleccionadaId));
   const quitar = async (id) => {
     if (ocupado) return;
     setOcupado(true);
@@ -242,17 +253,17 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
       ) : null}
 
       <K.TextLine
-        text={`${recetas.length} recetas recomendadas para esta comida.`}
+        text={`${recomendaciones.length} recetas recomendadas para esta comida.`}
       />
       {cargandoRecetas ? (
         <K.Loading text="Buscando recetas recomendadas…" />
       ) : errorRecetas ? (
         <K.ErrorState text={errorRecetas} />
-      ) : recetas.length > 0 ? (
-        recetas.map((receta) => (
+      ) : recomendaciones.length > 0 ? (
+        recomendaciones.map((receta) => (
           <TarjetaReceta
             key={receta.id}
-            imagen={receta.imagen}
+            imagen={imagenDe(receta)}
             titulo={receta.nombre}
             tiempo={receta.minutos}
             porciones={receta.porciones}
@@ -262,12 +273,15 @@ export default function PLA_09({ fecha, comida: comidaInicial }) {
             yaPlanificado={!!filaSeleccionada}
             ocupado={ocupado}
             onElegir={() => seleccionarReceta(receta)}
-            onVerDetalle={() => go("REC-02", {
-              receta: receta.id,
+            onVerDetalle={() => router.push({
+              pathname: "/planificar/[id]",
+              params: {
+                id: String(receta.id),
               fecha: diaSel,
               comida: comidaActiva,
               planId: filaSeleccionada && filaSeleccionada.id,
               yaPlanificado: !!filaSeleccionada,
+              },
             })}
           />
         ))
@@ -300,12 +314,15 @@ function BloquePlanificado({ fila, pantry, ocupado, quitar }) {
       : (r.ingredientes || []).map((t) => ({ nombre: t }));
   const total = detalle.length;
   const listos = Math.max(0, total - v.faltantes.length);
-  const fuente = resolverImagen(r.imagen);
+  const fuente = resolverImagen(imagenDe(r));
 
   return (
     <View style={styles.bloque}>
       <Pressable
-        onPress={() => go("REC-02", { receta: r.id, fecha: fila.fecha, comida: fila.comida, planId: fila.id, yaPlanificado: true })}
+        onPress={() => router.push({
+          pathname: "/planificar/[id]",
+          params: { id: String(r.id), fecha: fila.fecha, comida: fila.comida, planId: fila.id },
+        })}
         accessibilityRole="button"
         accessibilityLabel={`${r.nombre}. Ver receta`}
         accessibilityState={{ disabled: false }}

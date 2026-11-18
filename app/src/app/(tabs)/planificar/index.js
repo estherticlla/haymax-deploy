@@ -1,5 +1,5 @@
 import { useLocalSearchParams } from "expo-router";
-import PLA_09 from "../../screens/PLA-09";
+import PLA_09 from "../../../screens/PLA-09";
 
 export default function Planificar() {
   const { fecha, comida } = useLocalSearchParams();

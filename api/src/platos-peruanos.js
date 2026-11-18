@@ -70,6 +70,87 @@ platos.push(
   ["MAZAMORRAMORADA", "Mazamorra morada", 4, 50, 15, "Maiz morado|300|gr;Pina|0.5|und;Manzana|1|und;Chuno|40|gr;Canela|2|gr;Clavo de olor|1|gr", "Hierve el ma\u00edz morado con canela y clavo y cuela el l\u00edquido|Agrega pi\u00f1a y manzana picadas y cocina hasta ablandar|Disuelve el chu\u00f1o en agua fr\u00eda, incorp\u00f3ralo y mueve hasta espesar", "desayuno"]
 );
 
+// Cada receta tiene una foto distinta. Las URLs de Unsplash son absolutas y se
+// guardan completas en la base de datos para que Expo no las trate como rutas
+// del API.
+const imagenUnsplash = (id) => `https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=1200&q=80`;
+const IMAGENES_POR_PLATO = {
+  // Platos peruanos con fotografías específicas de Wikimedia Commons
+  ARROZPOLLO: "https://upload.wikimedia.org/wikipedia/commons/e/e6/Arroz_con_pollo_peruano.jpg",
+  CAUSA: "https://upload.wikimedia.org/wikipedia/commons/6/6a/Causa_Peruvian_dish.jpg",
+  ADOBO: "https://upload.wikimedia.org/wikipedia/commons/0/08/Adobo_Arequipe%C3%B1o.jpg",
+  JUANE: "https://upload.wikimedia.org/wikipedia/commons/e/eb/Juane%2C_plato_emblema_de_la_selva_del_Per%C3%BA.jpg",
+  PATASCA: "https://upload.wikimedia.org/wikipedia/commons/0/09/Patasca.jpg",
+  OLLUQUITO: "https://upload.wikimedia.org/wikipedia/commons/2/2e/Olluquitos.jpg",
+  CARAPULCRA: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Carapulcra.jpg",
+  CAUCAU: "https://upload.wikimedia.org/wikipedia/commons/6/67/Caucau.jpg",
+  PACHAMANCAOLLA: "https://upload.wikimedia.org/wikipedia/commons/9/9d/Pachamanca_Peru.JPG",
+  SUDADO: "https://upload.wikimedia.org/wikipedia/commons/9/92/Pescado_sudado_%28dorada%29.jpg",
+  SOLTERITO: "https://upload.wikimedia.org/wikipedia/commons/4/48/Solterito.jpg",
+  ARROZMARISCOS: "https://upload.wikimedia.org/wikipedia/commons/f/f5/Arroz_con_mariscos.jpg",
+  CHICHARRON: "https://upload.wikimedia.org/wikipedia/commons/9/9a/Chicharrones_Peru.jpg",
+  CHICHAPESCADO: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Chicharr%C3%B3n_de_pescado.jpg",
+  TORTILLA: "https://upload.wikimedia.org/wikipedia/commons/1/1f/Tortilla_de_raya_2.JPG",
+  CHORITOS: "https://upload.wikimedia.org/wikipedia/commons/d/da/Choritos_a_la_chalaca.JPG",
+  MENESTRON: "https://upload.wikimedia.org/wikipedia/commons/c/cc/Menestr%C3%B3n_Peru.jpg",
+  TACACHO: "https://upload.wikimedia.org/wikipedia/commons/1/11/Tacacho_con_cecina.jpg",
+  INCHICAPI: "https://upload.wikimedia.org/wikipedia/commons/e/ef/Inchicapi%2C_comida_t%C3%ADpica_de_la_selva_peruana.jpg",
+  PAPASOCOPA: "https://upload.wikimedia.org/wikipedia/commons/f/fd/Peru_Ocopa.jpg",
+  HUMITAS: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Humitas_%281%29.jpg",
+  CHAUFAVERDURA: "https://upload.wikimedia.org/wikipedia/commons/0/0b/Arroz_chaufa.JPG",
+  MAZAMORRAMORADA: "https://upload.wikimedia.org/wikipedia/commons/d/d6/Mazamorra_morada_peruana.jpg",
+
+  // Guisos y platos de preparación casera: Unsplash
+  QUINUA: imagenUnsplash("1731328351443-ea233d9b8037"),
+  ESTOFADO: imagenUnsplash("1731328351443-ea233d9b8037"),
+  ARROZTAPADO: imagenUnsplash("1731328351443-ea233d9b8037"),
+  LOCS: imagenUnsplash("1731328351443-ea233d9b8037"),
+  AJIATUN: imagenUnsplash("1731328351443-ea233d9b8037"),
+  PALLARES: imagenUnsplash("1731328351443-ea233d9b8037"),
+  ARVEJAPARTIDA: imagenUnsplash("1731328351443-ea233d9b8037"),
+  HUATIA: imagenUnsplash("1676300185165-3f543c1fcb72"),
+  TAMAL: imagenUnsplash("1676300185165-3f543c1fcb72"),
+  TALLARINROJO: imagenUnsplash("1563379926898-05f4575a45d8"),
+  ESCABECHE: imagenUnsplash("1731328351443-ea233d9b8037"),
+  SALTADOVERDURA: imagenUnsplash("1747292718361-c838a9968ec7"),
+  ARROZZAPALLO: imagenUnsplash("1731328351443-ea233d9b8037"),
+  GUISOTARWI: imagenUnsplash("1731328351443-ea233d9b8037"),
+  PURPAPA: imagenUnsplash("1676300185165-3f543c1fcb72"),
+  PICANTEPAPA: imagenUnsplash("1731328351443-ea233d9b8037"),
+  CHOCLOQUESO: imagenUnsplash("1676300185165-3f543c1fcb72"),
+  GUISOCHOCLO: imagenUnsplash("1731328351443-ea233d9b8037"),
+
+  // Sopas y caldos: Unsplash
+  SOPAQUINUA: imagenUnsplash("1652088079703-38f4a8d6b981"),
+  CHILCANO: imagenUnsplash("1652088079703-38f4a8d6b981"),
+  SOPACRIOLLA: imagenUnsplash("1731328351443-ea233d9b8037"),
+  SOPASECA: imagenUnsplash("1563379926898-05f4575a45d8"),
+  SOPAOLLUCO: imagenUnsplash("1652088079703-38f4a8d6b981"),
+
+  // Pescados y preparaciones marinas: Unsplash
+  TIRADITO: imagenUnsplash("1652498199372-30dfd622ceef"),
+  PESCADOPLANCHA: imagenUnsplash("1676300185165-3f543c1fcb72"),
+
+  // Ensaladas: Unsplash
+  CEBICHOCHO: imagenUnsplash("1747292718361-c838a9968ec7"),
+  ENSALADAQUINUA: imagenUnsplash("1747292718361-c838a9968ec7"),
+  ENSALADAHABAS: imagenUnsplash("1747292718361-c838a9968ec7"),
+
+  // Desayunos y preparaciones con pan: Unsplash
+  DESAYUNOQUINUA: imagenUnsplash("1702648982253-8b851013e81f"),
+  AVENAMACA: imagenUnsplash("1702648982253-8b851013e81f"),
+  PANTORTILLA: imagenUnsplash("1685381918549-6bbc1f2503de"),
+  TAMALCRIOLLO: imagenUnsplash("1676300185165-3f543c1fcb72"),
+  SANGUCHEDESPOLLO: imagenUnsplash("1685381918549-6bbc1f2503de")
+};
+
+for (const plato of platos) {
+  if (!["desayuno", "almuerzo", "cena", "todas"].includes(plato[7])) plato[7] = undefined;
+  const imagen = IMAGENES_POR_PLATO[plato[0]];
+  if (!imagen) throw new Error(`Falta una imagen para el plato ${plato[0]}`);
+  plato[8] = imagen;
+}
+
 const categorias = {
   "Mayonesa": ["Secos", "gr"], "Chicha de jora": ["Bebidas", "ml"], "Comino": ["Condimentos", "gr"],
   "Orégano": ["Condimentos", "gr"], "Gallina": ["Carnes", "gr"], "Aceitunas": ["Secos", "und"],
@@ -92,15 +173,17 @@ const { diasVidaUtilPorProducto } = require("./vida-util");
 
 async function cargarPlatosPeruanos(tx, autorId) {
   const cenas = new Set(["SOPAQUINUA", "CHILCANO", "MENESTRON", "SOPAOLLUCO"]);
-  for (const [codigo, titulo, porciones, minutos, precio, lista, pasos, tipoComida] of platos) {
+  for (const [codigo, titulo, porciones, minutos, precio, lista, pasos, tipoComida, imagen] of platos) {
     const id = `REC-PE-${codigo}`;
     const tipo = tipoComida || (cenas.has(codigo) ? "cena" : "almuerzo");
     const creado = await tx.get(
-      `INSERT INTO recetas (id, titulo, descripcion, porciones, tiempo_preparacion_min, dificultad, precio, pasos, autor_id, publica, tipo_comida)
-       VALUES (?, ?, ?, ?, ?, 'media', ?, ?, ?, TRUE, ?) ON CONFLICT (id) DO NOTHING RETURNING id`,
-      id, titulo, `Receta peruana de ${titulo.toLowerCase()}.`, porciones, minutos, precio, JSON.stringify(pasos.split('|')), autorId, tipo
+      `INSERT INTO recetas (id, titulo, descripcion, imagen, porciones, tiempo_preparacion_min, dificultad, precio, pasos, autor_id, publica, tipo_comida)
+       VALUES (?, ?, ?, ?, ?, ?, 'media', ?, ?, ?, TRUE, ?) ON CONFLICT (id) DO NOTHING RETURNING id`,
+      id, titulo, `Receta peruana de ${titulo.toLowerCase()}.`, imagen, porciones, minutos, precio, JSON.stringify(pasos.split('|')), autorId, tipo
     );
-    if (!creado) await tx.run("UPDATE recetas SET tipo_comida = ? WHERE id = ?", tipo, id);
+    if (!creado) {
+      await tx.run("UPDATE recetas SET tipo_comida = ?, imagen = ? WHERE id = ?", tipo, imagen, id);
+    }
     for (const [orden, entrada] of lista.split(';').entries()) {
       const [nombre, cantidad, unidad] = entrada.split('|');
       const existente = await tx.get(

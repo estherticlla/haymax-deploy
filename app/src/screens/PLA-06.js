@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import { Image } from "expo-image";
+import { router } from "expo-router";
 import Screen from "../components/Screen";
 import * as K from "../components/kit";
-import { go } from "../lib/nav";
 import { colors, radius, spacing, typography, shadows } from "../tokens";
 import useApi from "../hooks/useApi";
 import { getMotor } from "../lib/api";
@@ -45,10 +45,6 @@ export default function PLA_06({ fecha, comida: comidaInicial, planId, yaPlanifi
     const [motor, preferencias] = await Promise.all([getMotor(comida), leerPreferencias()]);
     return { ...motor, recetas: filtrarRecetasPorPreferencias(motor.recetas || [], preferencias) };
   });
-
-  useEffect(() => {
-    if (comidaFija) setComida(comidaInicial);
-  }, [comidaInicial, comidaFija]);
 
   useEffect(() => {
     if (comidaSolicitada.current === comida) return;
@@ -105,7 +101,10 @@ export default function PLA_06({ fecha, comida: comidaInicial, planId, yaPlanifi
             key={r.id}
             plato={r}
             estado={est}
-            onPress={() => go("REC-02", { receta: r.id, fecha, comida, planId, yaPlanificado })}
+            onPress={() => router.push({
+              pathname: "/planificar/[id]",
+              params: { id: String(r.id), fecha, comida, planId, yaPlanificado },
+            })}
           />
         );
       })}
