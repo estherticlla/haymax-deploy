@@ -166,6 +166,22 @@ const SUGERENCIAS = [
 ];
 
 // — Lecturas —
+function recomendadaParaHoy(recetas, disponibilidad, despensa) {
+  const porId = new Map((recetas || []).map((receta) => [String(receta.id), receta]));
+  const candidatas = (disponibilidad || [])
+    .map((estado) => ({ ...porId.get(String(estado.id)), ...estado }))
+    .filter((receta) => receta && receta.id);
+  const opciones = candidatas.length ? candidatas : recetas || [];
+  if (!opciones.length) return null;
+
+  const hayStock = (despensa || []).some((insumo) => Number(insumo.cantidad) > 0);
+  if (!hayStock) return opciones[Math.floor(Math.random() * opciones.length)];
+
+  const mayorCobertura = Math.max(...opciones.map((receta) => Number(receta.cobertura) || 0));
+  const empatadas = opciones.filter((receta) => (Number(receta.cobertura) || 0) === mayorCobertura);
+  return empatadas[Math.floor(Math.random() * empatadas.length)];
+}
+
 export async function getInicio() {
   const s = await leerSesion();
   const hoy = hoyInfo(s && s.distrito);
@@ -175,11 +191,12 @@ export async function getInicio() {
 
   await enCuenta();  // garantiza que hay sesión
 
-  const [recetas, planes, despensa, compras] = await Promise.all([
+  const [recetas, planes, despensa, compras, disponibilidad] = await Promise.all([
     rf("/recetas"),
     rf("/planes"),
     rf("/despensa"),
     rf("/compras"),
+    rf("/recetas/disponibilidad").catch(() => []),
   ]);
   const rs = recetas.map(aReceta);
   // El plato "de hoy" se identifica por la FECHA (no solo por el nombre del día:
@@ -190,6 +207,8 @@ export async function getInicio() {
   const plan = planP ? aPlan(planP, rs) : null;
   const shopList = compras.map((c) => ({ ...c, listo: !!c.listo }));
   const pantry = despensa.map(aInsumo);
+  const sugerida = recomendadaParaHoy(rs, disponibilidad, pantry);
+  const disponibilidadPorId = new Map((disponibilidad || []).map((estado) => [String(estado.id), estado]));
   const preferencias = await leerPreferencias();
   const vencimientos = resumenVencimientos(pantry, preferencias.diasAvisoVencimiento);
   return {
@@ -198,8 +217,9 @@ export async function getInicio() {
     primerNombre,
     inicial,
     plan,
-    recetaHoy: plan ? plan.receta : rs[0],
-    sugerida: rs[0],
+    recetaHoy: plan ? plan.receta : sugerida || rs[0] || null,
+    sugerida,
+    disponibilidadHoy: plan ? disponibilidadPorId.get(String(plan.recetaId)) || null : sugerida || null,
     stats: { ...D.pantryStats(pantry), porVencer: vencimientos.porVencer, vencidos: vencimientos.vencidos },
     shop: D.shoppingProgress(shopList),
     balance: D.balanceSemanal(),
