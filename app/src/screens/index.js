@@ -32,7 +32,6 @@ export const SCREEN_IDS = [
   "PLA-09",
   "COM-01",
   "PRE-01",
-  "PRE-02",
   "PRE-03",
   "SAL-01",
   "AJU-01",
@@ -183,11 +182,6 @@ export const SCREEN_META = {
     "tab": null,
     "hasFab": false
   },
-  "PRE-02": {
-    "name": "Despensa actualizada: insumos descontados",
-    "tab": null,
-    "hasFab": false
-  },
   "PRE-03": {
     "name": "Alerta de vencimiento",
     "tab": null,
@@ -254,7 +248,6 @@ const LOADERS = {
   "PLA-09": () => require("./PLA-09").default,
   "COM-01": () => require("./COM-01").default,
   "PRE-01": () => require("./PRE-01").default,
-  "PRE-02": () => require("./PRE-02").default,
   "PRE-03": () => require("./PRE-03").default,
   "SAL-01": () => require("./SAL-01").default,
   "AJU-01": () => require("./AJU-01").default,

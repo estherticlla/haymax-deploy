@@ -58,7 +58,7 @@ export default function INI_01() {
           icon="checkmark-done-outline"
           label="Plato de hoy preparado"
           sub="Revisa o corrige lo que se descontó"
-          onPress={() => go("PRE-02", { receta: recetaHoy.id, porciones: String(porciones) })}
+          onPress={() => go("PRE-01", { receta: recetaHoy.id })}
         />
       ) : (
         <K.QuickAction

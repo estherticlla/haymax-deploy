@@ -7,14 +7,18 @@ import { go } from "../lib/nav";
 import { colors } from "../tokens";
 import { anunciar } from "../lib/a11y";
 import useApi from "../hooks/useApi";
-import { getRecetaDetalle, agregarFavorito, quitarFavorito } from "../lib/api";
-import { hoyIso } from "../lib/fechas";
+import { getRecetaDetalle, getPlanSemanaDe, agregarFavorito, quitarFavorito } from "../lib/api";
+import { hoyIso, lunesDeIso } from "../lib/fechas";
 import { norm, precioPorPorcion, ahorroPorPorcion, soles, dificultadTexto } from "../lib/domain";
 
 const NOMBRE = "Detalle de receta";
 
-export default function REC_02({ receta, fecha, comida, planId, yaPlanificado }) {
-  const { data, loading, error, recargar } = useApi(() => getRecetaDetalle(receta));
+export default function REC_02({ receta, fecha, comida, planId }) {
+  const { data, loading, error, recargar } = useApi(async () => {
+    const lunesActual = lunesDeIso(hoyIso());
+    const [detalle, semana] = await Promise.all([getRecetaDetalle(receta), getPlanSemanaDe(lunesActual)]);
+    return { ...detalle, planActual: semana.plan || [] };
+  });
   const [favLocal, setFavLocal] = useState(null);
   const [errorFavorito, setErrorFavorito] = useState("");
 
@@ -34,7 +38,7 @@ export default function REC_02({ receta, fecha, comida, planId, yaPlanificado })
   }
 
   const r = data.receta;
-  const estaPlanificado = yaPlanificado === true || yaPlanificado === "true" || !!planId;
+  const estaPlanificado = data.planActual.some((plan) => String(plan.recetaId) === String(r.id));
   const favorito = favLocal == null ? !!r.esFavorito : favLocal;
   const faltantes = (data.disponibilidad && data.disponibilidad.faltantes) || [];
   const faltaIngrediente = (nombre) => faltantes.some((f) => norm(f).includes(norm(nombre)));
@@ -133,20 +137,20 @@ export default function REC_02({ receta, fecha, comida, planId, yaPlanificado })
         sub={`${r.calorias > 0 ? `${r.calorias} kcal por porción` : "Información nutricional no disponible"} · rinde ${r.porciones} porciones · ${faltantes.length === 0 ? "todo disponible" : `faltan ${faltantes.length} insumos`}`}
       />
 
-      <Button
-        label={estaPlanificado ? planId ? "Cambiar porciones" : "Ya está en tu plan" : "Planificar este plato"}
-        full
-        disabled={estaPlanificado && !planId}
-        onPress={() => {
-          if (estaPlanificado && !planId) return;
-          go("PLA-07", {
-            receta: r.id,
-            fecha: fecha || hoyIso(),
-            comida: comida || "almuerzo",
-            planId,
-          });
-        }}
-      />
+      {!estaPlanificado ? (
+        <Button
+          label="Planificar este plato"
+          full
+          onPress={() =>
+            go("PLA-07", {
+              receta: r.id,
+              fecha: fecha || hoyIso(),
+              comida: comida || "almuerzo",
+              planId,
+            })
+          }
+        />
+      ) : null}
       <Button label="Cocinar ahora" variant="outline" full onPress={() => go("PRE-01", { receta: r.id })} />
     </Screen>
   );
