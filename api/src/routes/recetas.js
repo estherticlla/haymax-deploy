@@ -67,13 +67,22 @@ async function insertarIngredientes(tx, recetaId, lista) {
 // GET /api/recetas?q=pollo&distrito=Surquillo&dificultad=facil&orden=precio&dir=asc&page=1&limit=20
 // Devuelve un array (compatible con el app); el total va en la cabecera X-Total-Count.
 router.get("/", authOpcional, asyncHandler(async (req, res) => {
-  const { q: term, distrito, dificultad } = req.query;
+  // 1. Agregamos tipo_comida aquí:
+  const { q: term, distrito, dificultad, tipo_comida } = req.query; 
   const filtros = ["publica = TRUE"];
   const args = [];
+
+  // 2. Agregamos esta nueva condición para filtrar:
+  if (tipo_comida && ["desayuno", "almuerzo", "cena"].includes(tipo_comida)) {
+    filtros.push("(tipo_comida = ? OR tipo_comida = 'todas')");
+    args.push(tipo_comida);
+  }
+
   if (term) {
     filtros.push("(titulo ILIKE ? OR descripcion ILIKE ?)");
     args.push(`%${term}%`, `%${term}%`);
   }
+  
   if (distrito) {
     filtros.push("(distrito IS NULL OR distrito = ?)");
     args.push(distrito);
